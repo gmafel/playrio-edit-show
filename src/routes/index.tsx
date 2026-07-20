@@ -19,7 +19,7 @@ export const Route = createFileRoute("/")({
    - Senha da vendedora (troque abaixo antes de publicar)
    - WhatsApp: número no formato internacional (Brasil = 55 + DDD + numero)
    ================================================================ */
-const SELLER_PASSWORD = "playrio2026";
+const SELLER_PASSWORD = "260385";
 const WHATSAPP_NUMBER = "551733053929"; // (17) 3305-3929
 const WHATSAPP_MSG = encodeURIComponent(
   "Olá! Vim pelo orçamento online da Play Rio e gostaria de mais informações."
@@ -534,9 +534,7 @@ function OrcamentoPage() {
               </div>
             </div>
             <a className="contact-cta" href={WA_LINK} target="_blank" rel="noopener noreferrer">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20.5 3.5A11.9 11.9 0 003.6 20.3L2 22l1.8-1.6A11.9 11.9 0 1020.5 3.5zM12 21.3a9.3 9.3 0 01-4.7-1.3l-.3-.2-2.8.9.9-2.7-.2-.3A9.3 9.3 0 1121.3 12 9.3 9.3 0 0112 21.3zm5.2-7c-.3-.1-1.7-.8-1.9-.9s-.4-.1-.6.1-.7.9-.9 1.1-.3.2-.6.1a7.6 7.6 0 01-3.7-3.2c-.3-.5.3-.5.8-1.5a.5.5 0 000-.5c-.1-.1-.6-1.5-.9-2s-.5-.5-.6-.5h-.6a1.1 1.1 0 00-.8.4A3.3 3.3 0 006 9.7c0 1.9 1.4 3.7 1.6 4s2.8 4.3 6.9 6c1 .4 1.7.7 2.3.9a5.6 5.6 0 002.5.2 4.1 4.1 0 002.7-1.9 3.4 3.4 0 00.2-1.9c-.1-.2-.4-.3-.7-.4z" />
-              </svg>
+              <WhatsAppIcon />
               Falar com a Play Rio agora
             </a>
           </div>
@@ -549,9 +547,8 @@ function OrcamentoPage() {
 
       {/* FLOATING WA */}
       <a className="wa-float" href={WA_LINK} target="_blank" rel="noopener noreferrer" aria-label="Falar no WhatsApp">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M20.5 3.5A11.9 11.9 0 003.6 20.3L2 22l1.8-1.6A11.9 11.9 0 1020.5 3.5zM12 21.3a9.3 9.3 0 01-4.7-1.3l-.3-.2-2.8.9.9-2.7-.2-.3A9.3 9.3 0 1121.3 12 9.3 9.3 0 0112 21.3zm5.2-7c-.3-.1-1.7-.8-1.9-.9s-.4-.1-.6.1-.7.9-.9 1.1-.3.2-.6.1a7.6 7.6 0 01-3.7-3.2c-.3-.5.3-.5.8-1.5a.5.5 0 000-.5c-.1-.1-.6-1.5-.9-2s-.5-.5-.6-.5h-.6a1.1 1.1 0 00-.8.4A3.3 3.3 0 006 9.7c0 1.9 1.4 3.7 1.6 4s2.8 4.3 6.9 6c1 .4 1.7.7 2.3.9a5.6 5.6 0 002.5.2 4.1 4.1 0 002.7-1.9 3.4 3.4 0 00.2-1.9c-.1-.2-.4-.3-.7-.4z" />
-        </svg>
+        <span className="wa-pulse" aria-hidden="true" />
+        <WhatsAppIcon />
       </a>
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} onSubmit={handleLogin} />}
@@ -789,5 +786,16 @@ function LoginModal({
         </div>
       </div>
     </div>
+  );
+}
+
+/* ================================================================
+   WHATSAPP ICON — clean, official-style path
+   ================================================================ */
+function WhatsAppIcon() {
+  return (
+    <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+      <path d="M16.003 3C8.82 3 3 8.82 3 16c0 2.29.6 4.53 1.74 6.5L3 29l6.68-1.75A12.94 12.94 0 0016.003 29C23.18 29 29 23.18 29 16S23.18 3 16.003 3zm0 23.6c-1.98 0-3.92-.53-5.62-1.53l-.4-.24-3.96 1.04 1.06-3.86-.26-.4A10.55 10.55 0 015.4 16c0-5.85 4.76-10.6 10.6-10.6 5.85 0 10.6 4.75 10.6 10.6 0 5.85-4.75 10.6-10.6 10.6zm5.82-7.94c-.32-.16-1.88-.93-2.17-1.03-.29-.11-.5-.16-.72.16-.21.32-.82 1.03-1.01 1.24-.19.21-.37.24-.69.08-.32-.16-1.35-.5-2.57-1.6-.95-.85-1.6-1.9-1.79-2.22-.19-.32-.02-.5.14-.66.14-.14.32-.37.48-.56.16-.19.21-.32.32-.53.11-.21.05-.4-.03-.56-.08-.16-.72-1.74-.99-2.38-.26-.62-.53-.54-.72-.55h-.61c-.21 0-.56.08-.85.4-.29.32-1.11 1.08-1.11 2.64 0 1.56 1.14 3.06 1.3 3.27.16.21 2.24 3.42 5.44 4.79.76.33 1.35.52 1.81.67.76.24 1.45.21 2 .13.61-.09 1.88-.77 2.14-1.51.27-.74.27-1.37.19-1.51-.08-.13-.29-.21-.61-.37z" />
+    </svg>
   );
 }

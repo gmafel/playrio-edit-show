@@ -75,15 +75,17 @@ a{color:inherit}
 }
 .brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--logo-color)}
 .brand-logo{
-  height:44px;width:auto;
-  filter:drop-shadow(0 1px 2px rgba(0,0,0,.15));
-  transition:transform .2s ease;
+  height:46px;width:auto;
+  transition:transform .3s cubic-bezier(.2,.8,.2,1),filter .3s ease;
 }
 html[data-theme="light"] .brand-logo{
-  /* Original logo has dark navy background; keep as-is */
-  border-radius:8px;
+  filter:brightness(0) saturate(100%) invert(9%) sepia(38%) saturate(4200%) hue-rotate(247deg) brightness(65%) contrast(102%)
+         drop-shadow(0 2px 4px rgba(28,16,66,.15));
 }
-.brand:hover .brand-logo{transform:translateY(-1px)}
+html[data-theme="dark"] .brand-logo{
+  filter:drop-shadow(0 2px 6px rgba(255,255,255,.15));
+}
+.brand:hover .brand-logo{transform:translateY(-2px) rotate(-2deg) scale(1.04)}
 .nav-right{display:flex;align-items:center;gap:10px}
 .icon-btn{
   display:inline-flex;align-items:center;justify-content:center;
@@ -369,8 +371,8 @@ html[data-theme="light"] .brand-logo{
 .tagline span:nth-child(3){color:var(--sky)}
 .contact-body{padding:56px 48px}
 .contact-body .contact-logo{
-  height:56px;width:auto;margin-bottom:24px;border-radius:8px;
-  background:rgba(255,255,255,.05);padding:4px 10px;
+  height:64px;width:auto;margin-bottom:24px;
+  filter:drop-shadow(0 4px 12px rgba(0,0,0,.35));
 }
 .contact-body h2{font-size:clamp(1.8rem,3vw,2.3rem);font-weight:800;margin-bottom:28px}
 .contact-list{display:grid;gap:16px}
@@ -411,14 +413,24 @@ html[data-theme="light"] .brand-logo{
 /* ---------- FLOATING WHATSAPP ---------- */
 .wa-float{
   position:fixed;right:22px;bottom:22px;z-index:90;
-  background:#25D366;color:#fff;
-  width:60px;height:60px;border-radius:50%;
+  background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;
+  width:62px;height:62px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 12px 28px -6px rgba(37,211,102,.55);
   text-decoration:none;transition:transform .2s ease,box-shadow .2s ease;
 }
-.wa-float:hover{transform:translateY(-3px) scale(1.06);box-shadow:0 18px 36px -8px rgba(37,211,102,.75)}
-.wa-float svg{width:30px;height:30px}
+.wa-float:hover{transform:translateY(-3px) scale(1.08);box-shadow:0 18px 36px -8px rgba(37,211,102,.85)}
+.wa-float svg{width:32px;height:32px;position:relative;z-index:2}
+.wa-pulse{
+  position:absolute;inset:0;border-radius:50%;
+  background:#25D366;opacity:.55;
+  animation:waPulse 2s cubic-bezier(.2,.8,.2,1) infinite;
+}
+@keyframes waPulse{
+  0%{transform:scale(1);opacity:.55}
+  70%{transform:scale(1.7);opacity:0}
+  100%{transform:scale(1.7);opacity:0}
+}
 
 /* ---------- LOGIN MODAL ---------- */
 .modal-overlay{
@@ -464,3 +476,85 @@ html[data-theme="light"] .brand-logo{
   font-family:inherit;font-size:.8rem;
 }
 .edit-banner button:hover{background:rgba(255,255,255,.3)}
+
+/* ---------- DECOR BLOBS + ANIMATIONS ---------- */
+@keyframes floaty { 0%,100%{transform:translate(0,0) rotate(0)} 50%{transform:translate(14px,-18px) rotate(6deg)} }
+@keyframes floaty2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-20px,12px) scale(1.08)} }
+@keyframes gradShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+@keyframes rise { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:none} }
+
+.hero{overflow:hidden}
+.hero::before,.hero::after{
+  content:'';position:absolute;border-radius:50%;filter:blur(60px);z-index:0;pointer-events:none;
+}
+.hero::before{
+  width:340px;height:340px;top:-80px;left:-80px;
+  background:radial-gradient(circle,color-mix(in srgb,var(--orange) 55%,transparent),transparent 70%);
+  animation:floaty 9s ease-in-out infinite;
+}
+.hero::after{
+  width:420px;height:420px;bottom:-120px;right:-100px;
+  background:radial-gradient(circle,color-mix(in srgb,var(--violet) 55%,transparent),transparent 70%);
+  animation:floaty2 11s ease-in-out infinite;
+}
+.hero-inner{position:relative;z-index:1}
+.hero h1, .hero-sub, .hero-badges, .hero-photo{animation:rise .8s cubic-bezier(.2,.8,.2,1) both}
+.hero-sub{animation-delay:.1s}
+.hero-badges{animation-delay:.2s}
+.hero-photo{animation-delay:.15s}
+
+.hero h1 em{
+  background:linear-gradient(90deg,var(--orange),var(--yellow),var(--orange));
+  background-size:200% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:gradShift 6s ease-in-out infinite;
+}
+
+/* animated colorful stripe under trust */
+.trust{position:relative}
+.trust::before{
+  content:'';display:block;height:6px;
+  background:linear-gradient(90deg,var(--orange),var(--yellow),var(--green),var(--sky),var(--violet),var(--orange));
+  background-size:200% 100%;animation:gradShift 8s linear infinite;
+}
+
+/* soft dotted background on light bg for sections */
+.section{position:relative}
+.section::before{
+  content:'';position:absolute;inset:0;pointer-events:none;opacity:.35;z-index:0;
+  background-image:radial-gradient(color-mix(in srgb,var(--violet) 18%,transparent) 1px,transparent 1.4px);
+  background-size:22px 22px;
+  mask-image:radial-gradient(ellipse at center,black 35%,transparent 75%);
+}
+.section > *{position:relative;z-index:1}
+
+/* prettier price emphasis */
+.price-new{
+  background:linear-gradient(90deg,var(--orange),#ff8a3d);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 2px 20px rgba(232,86,44,.15);
+}
+
+/* product card ribbon shimmer */
+.product-card::before{
+  content:'';position:absolute;inset:0;border-radius:26px;pointer-events:none;
+  background:linear-gradient(135deg,transparent 40%,color-mix(in srgb,var(--accent) 22%,transparent) 50%,transparent 60%);
+  opacity:0;transition:opacity .4s ease;mix-blend-mode:overlay;
+}
+.product-card:hover::before{opacity:1}
+
+/* trust items reveal */
+.trust-item .num{transition:transform .3s ease}
+.trust-item:hover .num{transform:scale(1.08)}
+
+/* contact CTA sparkle */
+.contact-cta{position:relative;overflow:hidden}
+.contact-cta::after{
+  content:'';position:absolute;top:0;left:-70%;width:60%;height:100%;
+  background:linear-gradient(120deg,transparent,rgba(255,255,255,.35),transparent);
+  transform:skewX(-20deg);transition:left .6s ease;
+}
+.contact-cta:hover::after{left:130%}
+
+/* nav shadow when scrolling feel */
+.nav{box-shadow:0 8px 24px -20px var(--shadow-color)}
