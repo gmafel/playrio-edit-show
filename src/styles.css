@@ -371,8 +371,8 @@ html[data-theme="dark"] .brand-logo{
 .tagline span:nth-child(3){color:var(--sky)}
 .contact-body{padding:56px 48px}
 .contact-body .contact-logo{
-  height:56px;width:auto;margin-bottom:24px;border-radius:8px;
-  background:rgba(255,255,255,.05);padding:4px 10px;
+  height:64px;width:auto;margin-bottom:24px;
+  filter:drop-shadow(0 4px 12px rgba(0,0,0,.35));
 }
 .contact-body h2{font-size:clamp(1.8rem,3vw,2.3rem);font-weight:800;margin-bottom:28px}
 .contact-list{display:grid;gap:16px}
@@ -413,14 +413,24 @@ html[data-theme="dark"] .brand-logo{
 /* ---------- FLOATING WHATSAPP ---------- */
 .wa-float{
   position:fixed;right:22px;bottom:22px;z-index:90;
-  background:#25D366;color:#fff;
-  width:60px;height:60px;border-radius:50%;
+  background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;
+  width:62px;height:62px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 12px 28px -6px rgba(37,211,102,.55);
   text-decoration:none;transition:transform .2s ease,box-shadow .2s ease;
 }
-.wa-float:hover{transform:translateY(-3px) scale(1.06);box-shadow:0 18px 36px -8px rgba(37,211,102,.75)}
-.wa-float svg{width:30px;height:30px}
+.wa-float:hover{transform:translateY(-3px) scale(1.08);box-shadow:0 18px 36px -8px rgba(37,211,102,.85)}
+.wa-float svg{width:32px;height:32px;position:relative;z-index:2}
+.wa-pulse{
+  position:absolute;inset:0;border-radius:50%;
+  background:#25D366;opacity:.55;
+  animation:waPulse 2s cubic-bezier(.2,.8,.2,1) infinite;
+}
+@keyframes waPulse{
+  0%{transform:scale(1);opacity:.55}
+  70%{transform:scale(1.7);opacity:0}
+  100%{transform:scale(1.7);opacity:0}
+}
 
 /* ---------- LOGIN MODAL ---------- */
 .modal-overlay{
