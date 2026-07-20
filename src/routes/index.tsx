@@ -547,9 +547,8 @@ function OrcamentoPage() {
 
       {/* FLOATING WA */}
       <a className="wa-float" href={WA_LINK} target="_blank" rel="noopener noreferrer" aria-label="Falar no WhatsApp">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M20.5 3.5A11.9 11.9 0 003.6 20.3L2 22l1.8-1.6A11.9 11.9 0 1020.5 3.5zM12 21.3a9.3 9.3 0 01-4.7-1.3l-.3-.2-2.8.9.9-2.7-.2-.3A9.3 9.3 0 1121.3 12 9.3 9.3 0 0112 21.3zm5.2-7c-.3-.1-1.7-.8-1.9-.9s-.4-.1-.6.1-.7.9-.9 1.1-.3.2-.6.1a7.6 7.6 0 01-3.7-3.2c-.3-.5.3-.5.8-1.5a.5.5 0 000-.5c-.1-.1-.6-1.5-.9-2s-.5-.5-.6-.5h-.6a1.1 1.1 0 00-.8.4A3.3 3.3 0 006 9.7c0 1.9 1.4 3.7 1.6 4s2.8 4.3 6.9 6c1 .4 1.7.7 2.3.9a5.6 5.6 0 002.5.2 4.1 4.1 0 002.7-1.9 3.4 3.4 0 00.2-1.9c-.1-.2-.4-.3-.7-.4z" />
-        </svg>
+        <span className="wa-pulse" aria-hidden="true" />
+        <WhatsAppIcon />
       </a>
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} onSubmit={handleLogin} />}
