@@ -19,7 +19,7 @@ export const Route = createFileRoute("/")({
    - Senha da vendedora (troque abaixo antes de publicar)
    - WhatsApp: número no formato internacional (Brasil = 55 + DDD + numero)
    ================================================================ */
-const SELLER_PASSWORD = "playrio2026";
+const SELLER_PASSWORD = "260385";
 const WHATSAPP_NUMBER = "551733053929"; // (17) 3305-3929
 const WHATSAPP_MSG = encodeURIComponent(
   "Olá! Vim pelo orçamento online da Play Rio e gostaria de mais informações."
