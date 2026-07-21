@@ -558,3 +558,112 @@ html[data-theme="dark"] .brand-logo{
 
 /* nav shadow when scrolling feel */
 .nav{box-shadow:0 8px 24px -20px var(--shadow-color)}
+
+/* ============================================================
+   ROUNDER EVERYTHING + EDIT CONTROLS (v2)
+   ============================================================ */
+.badge{border-radius:999px}
+.quote-card{border-radius:26px}
+.trust-inner{border-radius:28px}
+.hero-photo,.quote-photo,.terms-photo,.contact-photo{border-radius:32px}
+.product-card{border-radius:32px;position:relative}
+.product-card::before{border-radius:32px}
+.mat-card{border-radius:26px}
+.mat-icon{border-radius:20px}
+.req-card{border-radius:26px}
+.contact-row{border-radius:20px}
+.contact-icon{border-radius:14px}
+.modal-box{border-radius:28px}
+.modal-box input{border-radius:16px}
+.icon-btn{border-radius:14px}
+@media (min-width:861px){
+  .contact-photo{border-radius:0 40px 40px 0}
+}
+
+/* ADD PRODUCT BTN */
+.add-product-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  padding:60px 24px;background:var(--surface);color:var(--text-muted);
+  border:2px dashed color-mix(in srgb,var(--orange) 45%,transparent);
+  border-radius:32px;cursor:pointer;font:inherit;
+  transition:all .25s ease;
+}
+.add-product-btn:hover{
+  border-color:var(--orange);color:var(--orange);
+  background:color-mix(in srgb,var(--orange) 6%,var(--surface));
+  transform:translateY(-3px);
+  box-shadow:0 18px 34px -18px var(--orange);
+}
+.add-product-btn .plus{
+  font-size:2.2rem;font-weight:800;line-height:1;
+  width:56px;height:56px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--orange),var(--yellow));color:#fff;
+}
+
+/* DELETE PRODUCT BTN */
+.delete-product-btn{
+  position:absolute;top:14px;right:14px;z-index:5;
+  width:36px;height:36px;border-radius:50%;border:none;
+  background:rgba(232,86,44,.95);color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 8px 18px -6px rgba(232,86,44,.6);
+  transition:transform .18s ease,background .18s ease;
+}
+.delete-product-btn:hover{transform:scale(1.1);background:#c94420}
+
+/* PHOTO EDIT BTN */
+.photo-edit-btn{
+  position:absolute;right:14px;bottom:14px;z-index:4;
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 14px;border-radius:999px;border:none;cursor:pointer;
+  background:rgba(28,23,48,.92);color:#fff;font:inherit;font-size:.8rem;font-weight:600;
+  box-shadow:0 8px 18px -6px rgba(0,0,0,.4);
+  transition:transform .18s ease,background .18s ease;
+}
+.photo-edit-btn:hover{transform:translateY(-2px);background:var(--orange)}
+
+/* ITEM DELETE + ADD */
+.comp-list li{display:flex;align-items:center;gap:8px}
+.item-del{
+  margin-left:auto;width:22px;height:22px;border-radius:50%;
+  border:none;background:rgba(232,86,44,.15);color:var(--orange);
+  font-weight:700;font-size:1rem;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .18s ease;flex-shrink:0;
+}
+.item-del:hover{background:var(--orange);color:#fff;transform:scale(1.15)}
+.add-item-btn{
+  margin-top:14px;align-self:flex-start;
+  padding:8px 16px;border-radius:999px;
+  border:1.5px dashed var(--border);background:transparent;color:var(--text-muted);
+  cursor:pointer;font:inherit;font-size:.85rem;font-weight:600;
+  transition:all .2s ease;
+}
+.add-item-btn:hover{border-color:var(--orange);color:var(--orange);border-style:solid}
+
+/* TAG ROW */
+.tag-row{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+.tag-color-select{
+  border:1.5px solid var(--border);border-radius:999px;
+  background:var(--surface);color:var(--text);
+  padding:5px 10px;font:inherit;font-size:.75rem;cursor:pointer;
+}
+
+/* PHONE INPUT */
+.phone-input{
+  background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);
+  color:#fff;border-radius:12px;padding:8px 12px;font:inherit;font-size:.95rem;
+  outline:none;transition:border-color .2s ease;width:100%;max-width:220px;
+}
+.phone-input:focus{border-color:var(--yellow);background:rgba(255,255,255,.18)}
+
+/* Edit banner suave */
+.edit-banner{
+  border-radius:0 0 20px 20px;
+  max-width:900px;margin:0 auto;
+  box-shadow:0 12px 28px -12px rgba(47,158,82,.5);
+}
+
+/* Editable price-tag legibilidade */
+.price-tag[contenteditable="true"]{outline-color:#fff}
