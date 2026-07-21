@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 
 import heroAsset from "@/assets/hero.jpg.asset.json";
 import quoteAsset from "@/assets/quote.jpg.asset.json";
@@ -16,74 +16,132 @@ export const Route = createFileRoute("/")({
 
 /* ================================================================
    CONFIG
-   - Senha da vendedora (troque abaixo antes de publicar)
-   - WhatsApp: número no formato internacional (Brasil = 55 + DDD + numero)
    ================================================================ */
 const SELLER_PASSWORD = "260385";
-const WHATSAPP_NUMBER = "551733053929"; // (17) 3305-3929
+const DEFAULT_PHONE = "(17) 3305-3929";
 const WHATSAPP_MSG = encodeURIComponent(
   "Olá! Vim pelo orçamento online da Play Rio e gostaria de mais informações."
 );
-const WA_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MSG}`;
+
+/** Converte "(17) 3305-3929" → "551733053929" (E.164 sem +) */
+function phoneToWa(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return "5517333053929";
+  // se já começa com 55 e tem 12-13 dígitos, usa direto
+  if (digits.startsWith("55") && digits.length >= 12) return digits;
+  return "55" + digits;
+}
+function waLink(phone: string): string {
+  return `https://wa.me/${phoneToWa(phone)}?text=${WHATSAPP_MSG}`;
+}
+function telLink(phone: string): string {
+  return `tel:+${phoneToWa(phone)}`;
+}
 
 /* ================================================================
-   PRICES (default) - editáveis pela vendedora quando logada
+   PRODUCT MODEL
    ================================================================ */
-type PriceMap = Record<string, { old: string; new: string }>;
-const DEFAULT_PRICES: PriceMap = {
-  big_steel_master: { old: "R$ 19.990,00", new: "R$ 16.990,00" },
-  master_118: { old: "R$ 25.990,00", new: "R$ 22.990,00" },
-  master_121: { old: "R$ 25.990,00", new: "R$ 22.990,00" },
+type Product = {
+  id: string;
+  title: string;
+  areaTag: string;
+  image: string; // URL or data URL
+  priceOld: string;
+  priceNew: string;
+  tag: string;
+  tagColor: string;
+  items: string[];
 };
-const PRICES_KEY = "playrio_prices_v1";
+
+const DEFAULT_PRODUCTS: Product[] = [
+  {
+    id: "big_steel_master",
+    title: "Big Steel Master",
+    areaTag: "Área: 6x7 metros",
+    image: product1Asset.url,
+    priceOld: "R$ 19.990,00",
+    priceNew: "R$ 16.990,00",
+    tag: "Frete e instalação grátis",
+    tagColor: "var(--green)",
+    items: [
+      "Torre grande coberta com telhadinho pirâmide (1,40x1,40)",
+      "02 escorregadores ondulados de fibra (2,50m)",
+      "Conjunto de vogais e numerais (0 a 9)",
+      "Escada de 06 degraus",
+      "Balanço baby e balanço cadeirinha teen",
+      "Rapel de fibra",
+      "Jogo da velha (09 cubos)",
+      "Lousa mágica e alfabeto divertido",
+    ],
+  },
+  {
+    id: "master_118",
+    title: "Master 118",
+    areaTag: "Área: 8x8 metros",
+    image: product2Asset.url,
+    priceOld: "R$ 25.990,00",
+    priceNew: "R$ 22.990,00",
+    tag: "Área necessária: 8x8 metros",
+    tagColor: "var(--sky)",
+    items: [
+      "Torre grande coberta com telhadinho pirâmide (1,40x1,40)",
+      "Escorregadores ondulados de fibra (2,50m)",
+      "Escorregador caracol",
+      "Conjunto de vogais e numerais (0 a 9)",
+      "Escada de 06 degraus",
+      "Rapel de fibra",
+      "Jogo da velha (09 cubos) e lousa mágica",
+      "Alfabeto divertido (A ao Z)",
+      "Balanço baby e balanço cadeirinha teen",
+    ],
+  },
+  {
+    id: "master_121",
+    title: "Master 121",
+    areaTag: "Área: 8x8 metros",
+    image: product3Asset.url,
+    priceOld: "R$ 25.990,00",
+    priceNew: "R$ 22.990,00",
+    tag: "Frete e instalação grátis",
+    tagColor: "var(--green)",
+    items: [
+      "Torre grande coberta com telhadinho pirâmide (1,40x1,40)",
+      "Escorregadores ondulados de fibra (2,50m)",
+      "Escalada de cordas tipo teia",
+      "Escorregador de tubo",
+      "Conjunto de numerais (0 a 9) e vogais",
+      "Escada com 6 degraus",
+      "Rapel de fibra",
+      "Jogo da velha (9 cubos) e lousa mágica",
+      "Alfabeto divertido (A ao Z)",
+      "Balanço baby e balanço cadeirinha teen",
+    ],
+  },
+];
+
+const TAG_COLORS = [
+  { label: "Verde", value: "var(--green)" },
+  { label: "Azul", value: "var(--sky)" },
+  { label: "Laranja", value: "var(--orange)" },
+  { label: "Roxo", value: "var(--violet)" },
+  { label: "Amarelo", value: "var(--yellow)" },
+];
+
+const PRODUCTS_KEY = "playrio_products_v2";
+const PHONE_KEY = "playrio_phone_v1";
 const THEME_KEY = "playrio_theme";
 
 /* ================================================================
    MATERIAIS - carrossel
    ================================================================ */
 const MATERIALS = [
-  {
-    icon: "Aç",
-    color: "var(--orange)",
-    title: "Aço estrutural",
-    text: "Perfis de aço com pintura eletrostática epóxi que repele calor e mantém as cores vivas por muito mais tempo.",
-  },
-  {
-    icon: "Fi",
-    color: "var(--sky)",
-    title: "Fibra de vidro",
-    text: "Escorregadores, telhadinhos e rapel em fibra de alta resistência, próprios para uso intensivo ao ar livre.",
-  },
-  {
-    icon: "Pl",
-    color: "var(--violet)",
-    title: "Plástico rotomoldado",
-    text: "Peças coloridas, leves e resistentes ao impacto — sem farpas, sem quinas, seguras para as crianças.",
-  },
-  {
-    icon: "Co",
-    color: "var(--green)",
-    title: "Cordas náuticas",
-    text: "Cordas trançadas com alma de aço, ideais para escaladas, teias e balanços de alto tráfego.",
-  },
-  {
-    icon: "Ma",
-    color: "var(--yellow)",
-    title: "Madeira plástica",
-    text: "Alternativa ecológica que substitui a madeira tradicional: não racha, não empena e não precisa de manutenção.",
-  },
-  {
-    icon: "Al",
-    color: "#B14AED",
-    title: "Alumínio anticorrosivo",
-    text: "Componentes de acabamento em alumínio tratado — leve, durável e imune à ferrugem em áreas úmidas.",
-  },
-  {
-    icon: "In",
-    color: "#00B8A9",
-    title: "Inox 304",
-    text: "Parafusos, fixadores e escadas em aço inox 304 — segurança estrutural e durabilidade máxima.",
-  },
+  { icon: "Aç", color: "var(--orange)", title: "Aço estrutural", text: "Perfis de aço com pintura eletrostática epóxi que repele calor e mantém as cores vivas por muito mais tempo." },
+  { icon: "Fi", color: "var(--sky)", title: "Fibra de vidro", text: "Escorregadores, telhadinhos e rapel em fibra de alta resistência, próprios para uso intensivo ao ar livre." },
+  { icon: "Pl", color: "var(--violet)", title: "Plástico rotomoldado", text: "Peças coloridas, leves e resistentes ao impacto — sem farpas, sem quinas, seguras para as crianças." },
+  { icon: "Co", color: "var(--green)", title: "Cordas náuticas", text: "Cordas trançadas com alma de aço, ideais para escaladas, teias e balanços de alto tráfego." },
+  { icon: "Ma", color: "var(--yellow)", title: "Madeira plástica", text: "Alternativa ecológica que substitui a madeira tradicional: não racha, não empena e não precisa de manutenção." },
+  { icon: "Al", color: "#B14AED", title: "Alumínio anticorrosivo", text: "Componentes de acabamento em alumínio tratado — leve, durável e imune à ferrugem em áreas úmidas." },
+  { icon: "In", color: "#00B8A9", title: "Inox 304", text: "Parafusos, fixadores e escadas em aço inox 304 — segurança estrutural e durabilidade máxima." },
 ];
 
 /* ================================================================
@@ -91,7 +149,8 @@ const MATERIALS = [
    ================================================================ */
 function OrcamentoPage() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [prices, setPrices] = useState<PriceMap>(DEFAULT_PRICES);
+  const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
+  const [phone, setPhone] = useState<string>(DEFAULT_PHONE);
   const [editMode, setEditMode] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
@@ -101,25 +160,30 @@ function OrcamentoPage() {
       const t = (localStorage.getItem(THEME_KEY) as "light" | "dark" | null) ?? "light";
       setTheme(t);
       document.documentElement.setAttribute("data-theme", t);
-      const raw = localStorage.getItem(PRICES_KEY);
+      const raw = localStorage.getItem(PRODUCTS_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as PriceMap;
-        setPrices({ ...DEFAULT_PRICES, ...parsed });
+        const parsed = JSON.parse(raw) as Product[];
+        if (Array.isArray(parsed) && parsed.length) setProducts(parsed);
       }
-    } catch {
-      /* ignore */
-    }
+      const p = localStorage.getItem(PHONE_KEY);
+      if (p) setPhone(p);
+    } catch { /* ignore */ }
   }, []);
+
+  const persistProducts = (list: Product[]) => {
+    setProducts(list);
+    try { localStorage.setItem(PRODUCTS_KEY, JSON.stringify(list)); } catch { /* quota */ }
+  };
+  const persistPhone = (p: string) => {
+    setPhone(p);
+    try { localStorage.setItem(PHONE_KEY, p); } catch { /* ignore */ }
+  };
 
   const toggleTheme = () => {
     const next = theme === "light" ? "dark" : "light";
     setTheme(next);
     document.documentElement.setAttribute("data-theme", next);
-    try {
-      localStorage.setItem(THEME_KEY, next);
-    } catch {
-      /* ignore */
-    }
+    try { localStorage.setItem(THEME_KEY, next); } catch { /* ignore */ }
   };
 
   const handleLogin = (pwd: string) => {
@@ -133,27 +197,43 @@ function OrcamentoPage() {
 
   const exitEdit = () => setEditMode(false);
 
-  const updatePrice = (key: string, field: "old" | "new", value: string) => {
-    setPrices((prev) => {
-      const next = { ...prev, [key]: { ...prev[key], [field]: value } };
-      try {
-        localStorage.setItem(PRICES_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+  const updateProduct = (id: string, patch: Partial<Product>) => {
+    persistProducts(products.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  };
+  const deleteProduct = (id: string) => {
+    if (!confirm("Excluir este playground? Esta ação não pode ser desfeita.")) return;
+    persistProducts(products.filter((p) => p.id !== id));
+  };
+  const addProduct = () => {
+    const id = "novo_" + Date.now();
+    persistProducts([
+      ...products,
+      {
+        id,
+        title: "Novo Playground",
+        areaTag: "Área: 0x0 metros",
+        image: product1Asset.url,
+        priceOld: "R$ 0,00",
+        priceNew: "R$ 0,00",
+        tag: "Frete e instalação grátis",
+        tagColor: "var(--green)",
+        items: ["Item de exemplo — clique para editar"],
+      },
+    ]);
+    // scroll para o novo card
+    setTimeout(() => {
+      const el = document.getElementById("prod-" + id);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
   };
 
-  const resetPrices = () => {
-    if (!confirm("Restaurar os preços originais?")) return;
-    setPrices(DEFAULT_PRICES);
-    try {
-      localStorage.removeItem(PRICES_KEY);
-    } catch {
-      /* ignore */
-    }
+  const resetAll = () => {
+    if (!confirm("Restaurar todos os playgrounds e telefone para o padrão?")) return;
+    persistProducts(DEFAULT_PRODUCTS);
+    persistPhone(DEFAULT_PHONE);
   };
+
+  const wa = waLink(phone);
 
   return (
     <>
@@ -198,8 +278,8 @@ function OrcamentoPage() {
                 </svg>
               )}
             </button>
-            <a className="nav-cta" href="tel:+551733053929">
-              ☎ <span>(17) 3305-3929</span>
+            <a className="nav-cta" href={telLink(phone)}>
+              ☎ <span>{phone}</span>
             </a>
           </div>
         </div>
@@ -207,8 +287,9 @@ function OrcamentoPage() {
 
       {editMode && (
         <div className="edit-banner">
-          <span>Modo edição ativo — clique nos preços para alterar</span>
-          <button onClick={resetPrices}>Restaurar padrão</button>
+          <span>✎ Modo edição ativo — clique em qualquer texto ou foto para alterar</span>
+          <button onClick={addProduct}>+ Novo playground</button>
+          <button onClick={resetAll}>Restaurar padrão</button>
           <button onClick={exitEdit}>Sair</button>
         </div>
       )}
@@ -220,10 +301,10 @@ function OrcamentoPage() {
             <span className="eyebrow">Orçamento de Playground</span>
             <h1>
               Fabricando<br />
-              <em>alegrias</em> desde 1979
+              <em>alegrias</em> desde 1985
             </h1>
             <p className="hero-sub">
-              Tecnologia alemã em fabricação de playgrounds. Estruturas em aço com pintura eletrostática,
+              Mais de 40 anos de tecnologia alemã em fabricação de playgrounds. Estruturas em aço com pintura eletrostática,
               certificadas pela ABNT, prontas para transformar seu espaço em um mundo de diversão.
             </p>
             <div className="hero-badges">
@@ -233,7 +314,7 @@ function OrcamentoPage() {
               </span>
               <span className="badge" style={{ "--badge-color": "var(--yellow)" } as CSSProperties}>
                 <span className="dot" style={{ background: "var(--yellow)" }} />
-                Desconto exclusivo
+                Desde 1985
               </span>
               <span className="badge" style={{ "--badge-color": "var(--green)" } as CSSProperties}>
                 <span className="dot" style={{ background: "var(--green)" }} />
@@ -254,7 +335,7 @@ function OrcamentoPage() {
       {/* TRUST */}
       <section className="trust">
         <div className="trust-inner">
-          <div className="trust-item"><div className="num">46+</div><div className="lbl">Anos fabricando playgrounds no Brasil</div></div>
+          <div className="trust-item"><div className="num">40+</div><div className="lbl">Anos fabricando playgrounds (desde 1985)</div></div>
           <div className="trust-item"><div className="num">30–40</div><div className="lbl">Dias para entrega após confirmação</div></div>
           <div className="trust-item"><div className="num">01 ano</div><div className="lbl">De garantia de fabricação</div></div>
           <div className="trust-item"><div className="num">ABNT</div><div className="lbl">Conformidade com NBR 16071-2012</div></div>
@@ -299,80 +380,28 @@ function OrcamentoPage() {
               <h2>Escolha o playground ideal</h2>
             </div>
             <p className="section-note">
-              Três estruturas robustas, com componentes intercambiáveis e preços com desconto exclusivo neste orçamento.
+              Estruturas robustas, com componentes intercambiáveis e preços com desconto exclusivo neste orçamento.
             </p>
           </div>
 
           <div className="products">
-            <ProductCard
-              alt={false}
-              image={product1Asset.url}
-              areaTag="Área: 6x7 metros"
-              title="Big Steel Master"
-              priceKey="big_steel_master"
-              prices={prices}
-              editMode={editMode}
-              onEdit={updatePrice}
-              tag="Frete e instalação grátis"
-              tagColor="var(--green)"
-              items={[
-                "Torre grande coberta com telhadinho pirâmide (1,40x1,40)",
-                "02 escorregadores ondulados de fibra (2,50m)",
-                "Conjunto de vogais e numerais (0 a 9)",
-                "Escada de 06 degraus",
-                "Balanço baby e balanço cadeirinha teen",
-                "Rapel de fibra",
-                "Jogo da velha (09 cubos)",
-                "Lousa mágica e alfabeto divertido",
-              ]}
-            />
-            <ProductCard
-              alt
-              image={product2Asset.url}
-              areaTag="Área: 8x8 metros"
-              title="Master 118"
-              priceKey="master_118"
-              prices={prices}
-              editMode={editMode}
-              onEdit={updatePrice}
-              tag="Área necessária: 8x8 metros"
-              tagColor="var(--sky)"
-              items={[
-                "Torre grande coberta com telhadinho pirâmide (1,40x1,40)",
-                "Escorregadores ondulados de fibra (2,50m)",
-                "Escorregador caracol",
-                "Conjunto de vogais e numerais (0 a 9)",
-                "Escada de 06 degraus",
-                "Rapel de fibra",
-                "Jogo da velha (09 cubos) e lousa mágica",
-                "Alfabeto divertido (A ao Z)",
-                "Balanço baby e balanço cadeirinha teen",
-              ]}
-            />
-            <ProductCard
-              alt={false}
-              image={product3Asset.url}
-              areaTag="Área: 8x8 metros"
-              title="Master 121"
-              priceKey="master_121"
-              prices={prices}
-              editMode={editMode}
-              onEdit={updatePrice}
-              tag="Frete e instalação grátis"
-              tagColor="var(--green)"
-              items={[
-                "Torre grande coberta com telhadinho pirâmide (1,40x1,40)",
-                "Escorregadores ondulados de fibra (2,50m)",
-                "Escalada de cordas tipo teia",
-                "Escorregador de tubo",
-                "Conjunto de numerais (0 a 9) e vogais",
-                "Escada com 6 degraus",
-                "Rapel de fibra",
-                "Jogo da velha (9 cubos) e lousa mágica",
-                "Alfabeto divertido (A ao Z)",
-                "Balanço baby e balanço cadeirinha teen",
-              ]}
-            />
+            {products.map((p, i) => (
+              <ProductCard
+                key={p.id}
+                product={p}
+                alt={i % 2 === 1}
+                editMode={editMode}
+                onEdit={updateProduct}
+                onDelete={deleteProduct}
+                accentIndex={i}
+              />
+            ))}
+            {editMode && (
+              <button className="add-product-btn" onClick={addProduct}>
+                <span className="plus">+</span>
+                <span>Adicionar novo playground</span>
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -515,9 +544,21 @@ function OrcamentoPage() {
                     <path d="M22 16.92V21a1 1 0 01-1.1 1A19 19 0 012 4.1 1 1 0 013 3h4.09a1 1 0 011 .75l1 4a1 1 0 01-.29 1L7 10.29a16 16 0 006.71 6.71l1.54-1.8a1 1 0 011-.29l4 1a1 1 0 01.75 1z" />
                   </svg>
                 </div>
-                <div>
-                  <div className="k">Telefone</div>
-                  <div className="v">(17) 3305-3929</div>
+                <div style={{ flex: 1 }}>
+                  <div className="k">Telefone / WhatsApp</div>
+                  <div className="v">
+                    {editMode ? (
+                      <input
+                        className="phone-input"
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => persistPhone(e.target.value)}
+                        placeholder="(17) 3305-3929"
+                      />
+                    ) : (
+                      phone
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="contact-row">
@@ -533,20 +574,20 @@ function OrcamentoPage() {
                 </div>
               </div>
             </div>
-            <a className="contact-cta" href={WA_LINK} target="_blank" rel="noopener noreferrer">
+            <a className="contact-cta" href={wa} target="_blank" rel="noopener noreferrer">
               <WhatsAppIcon />
               Falar com a Play Rio agora
             </a>
           </div>
         </div>
         <div className="foot-line">
-          <span>Play Rio Brinquedos — Fabricando alegrias desde 1979.</span>
-          <span>Tecnologia alemã · Garantia de 01 ano de fabricação.</span>
+          <span>Play Rio Brinquedos — Fabricando alegrias desde 1985.</span>
+          <span>Mais de 40 anos · Tecnologia alemã · Garantia de 01 ano.</span>
         </div>
       </section>
 
       {/* FLOATING WA */}
-      <a className="wa-float" href={WA_LINK} target="_blank" rel="noopener noreferrer" aria-label="Falar no WhatsApp">
+      <a className="wa-float" href={wa} target="_blank" rel="noopener noreferrer" aria-label="Falar no WhatsApp">
         <span className="wa-pulse" aria-hidden="true" />
         <WhatsAppIcon />
       </a>
@@ -557,68 +598,161 @@ function OrcamentoPage() {
 }
 
 /* ================================================================
-   PRODUCT CARD
+   PRODUCT CARD (com edição completa)
    ================================================================ */
-type ProductCardProps = {
-  alt: boolean;
-  image: string;
-  areaTag: string;
-  title: string;
-  priceKey: string;
-  prices: PriceMap;
-  editMode: boolean;
-  onEdit: (key: string, field: "old" | "new", value: string) => void;
-  tag: string;
-  tagColor: string;
-  items: string[];
-};
 function ProductCard({
+  product,
   alt,
-  image,
-  areaTag,
-  title,
-  priceKey,
-  prices,
   editMode,
   onEdit,
-  tag,
-  tagColor,
-  items,
-}: ProductCardProps) {
-  const p = prices[priceKey];
+  onDelete,
+  accentIndex,
+}: {
+  product: Product;
+  alt: boolean;
+  editMode: boolean;
+  onEdit: (id: string, patch: Partial<Product>) => void;
+  onDelete: (id: string) => void;
+  accentIndex: number;
+}) {
+  const accents = ["var(--orange)", "var(--sky)", "var(--violet)", "var(--green)", "var(--yellow)"];
+  const accent = accents[accentIndex % accents.length];
+
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const onPickImage = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      alert("Imagem grande demais (limite 3MB). Escolha uma foto menor.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      onEdit(product.id, { image: String(reader.result) });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const updateItem = (idx: number, value: string) => {
+    const next = [...product.items];
+    next[idx] = value;
+    onEdit(product.id, { items: next });
+  };
+  const removeItem = (idx: number) => {
+    onEdit(product.id, { items: product.items.filter((_, i) => i !== idx) });
+  };
+  const addItem = () => {
+    onEdit(product.id, { items: [...product.items, "Novo item"] });
+  };
+
   const photo = (
     <div className="product-photo">
-      <img src={image} alt={title} />
-      <span className="area-tag">{areaTag}</span>
+      <img src={product.image} alt={product.title} />
+      <EditableSpan
+        className="area-tag"
+        value={product.areaTag}
+        editMode={editMode}
+        onCommit={(v) => onEdit(product.id, { areaTag: v })}
+      />
+      {editMode && (
+        <>
+          <button className="photo-edit-btn" onClick={() => fileRef.current?.click()} title="Trocar foto">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+            Trocar foto
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={onPickImage}
+          />
+        </>
+      )}
     </div>
   );
+
   const body = (
     <div className="product-body">
-      <h3>{title}</h3>
+      <EditableSpan
+        as="h3"
+        className=""
+        value={product.title}
+        editMode={editMode}
+        onCommit={(v) => onEdit(product.id, { title: v })}
+      />
       <div className="price-row">
         <EditableSpan
           className="price-old mono"
-          value={p.old}
+          value={product.priceOld}
           editMode={editMode}
-          onCommit={(v) => onEdit(priceKey, "old", v)}
+          onCommit={(v) => onEdit(product.id, { priceOld: v })}
         />
         <EditableSpan
           className="price-new"
-          value={p.new}
+          value={product.priceNew}
           editMode={editMode}
-          onCommit={(v) => onEdit(priceKey, "new", v)}
+          onCommit={(v) => onEdit(product.id, { priceNew: v })}
         />
       </div>
-      <span className="price-tag" style={{ background: tagColor }}>{tag}</span>
+      <div className="tag-row">
+        <EditableSpan
+          className="price-tag"
+          value={product.tag}
+          editMode={editMode}
+          onCommit={(v) => onEdit(product.id, { tag: v })}
+          style={{ background: product.tagColor }}
+        />
+        {editMode && (
+          <select
+            className="tag-color-select"
+            value={product.tagColor}
+            onChange={(e) => onEdit(product.id, { tagColor: e.target.value })}
+            title="Cor da tag"
+          >
+            {TAG_COLORS.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+        )}
+      </div>
       <ul className="comp-list">
-        {items.map((it) => (
-          <li key={it}>{it}</li>
+        {product.items.map((it, idx) => (
+          <li key={idx}>
+            <EditableSpan
+              value={it}
+              editMode={editMode}
+              onCommit={(v) => updateItem(idx, v)}
+            />
+            {editMode && (
+              <button className="item-del" onClick={() => removeItem(idx)} title="Remover item">×</button>
+            )}
+          </li>
         ))}
       </ul>
+      {editMode && (
+        <button className="add-item-btn" onClick={addItem}>+ Adicionar item</button>
+      )}
     </div>
   );
+
   return (
-    <div className={`product-card hover-frame${alt ? " alt" : ""}`}>
+    <div
+      id={"prod-" + product.id}
+      className={`product-card hover-frame${alt ? " alt" : ""}`}
+      style={{ "--accent": accent } as CSSProperties}
+    >
+      {editMode && (
+        <button className="delete-product-btn" onClick={() => onDelete(product.id)} title="Excluir playground">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+          </svg>
+        </button>
+      )}
       {alt ? (
         <>
           {body}
@@ -635,51 +769,57 @@ function ProductCard({
 }
 
 /* ================================================================
-   EDITABLE SPAN — mantém fonte/estilo intactos
+   EDITABLE SPAN
    ================================================================ */
 function EditableSpan({
   value,
   editMode,
   onCommit,
   className,
+  as = "span",
+  style,
 }: {
   value: string;
   editMode: boolean;
   onCommit: (v: string) => void;
   className?: string;
+  as?: "span" | "h3";
+  style?: CSSProperties;
 }) {
-  const ref = useRef<HTMLSpanElement>(null);
+  const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     if (ref.current && ref.current.textContent !== value) {
       ref.current.textContent = value;
     }
   }, [value]);
+  const Tag = as as "span";
   return (
-    <span
-      ref={ref}
+    <Tag
+      ref={ref as never}
       className={className}
+      style={style}
       contentEditable={editMode}
       suppressContentEditableWarning
       spellCheck={false}
       onBlur={(e) => {
-        const v = e.currentTarget.textContent?.trim() ?? "";
+        const v = (e.currentTarget as HTMLElement).textContent?.trim() ?? "";
         if (v && v !== value) onCommit(v);
-        else e.currentTarget.textContent = value;
+        else (e.currentTarget as HTMLElement).textContent = value;
       }}
       onKeyDown={(e) => {
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && as !== "h3") {
           e.preventDefault();
-          (e.currentTarget as HTMLSpanElement).blur();
+          (e.currentTarget as HTMLElement).blur();
         }
       }}
     >
       {value}
-    </span>
+    </Tag>
   );
 }
 
 /* ================================================================
-   MATERIALS CARROUSEL — drag em mouse + touch nativo
+   MATERIALS CARROUSEL
    ================================================================ */
 function MaterialsCarousel() {
   const ref = useRef<HTMLDivElement>(null);
@@ -695,14 +835,8 @@ function MaterialsCarousel() {
       state.current.scrollLeft = el.scrollLeft;
       el.classList.add("dragging");
     };
-    const onLeave = () => {
-      state.current.isDown = false;
-      el.classList.remove("dragging");
-    };
-    const onUp = () => {
-      state.current.isDown = false;
-      el.classList.remove("dragging");
-    };
+    const onLeave = () => { state.current.isDown = false; el.classList.remove("dragging"); };
+    const onUp = () => { state.current.isDown = false; el.classList.remove("dragging"); };
     const onMove = (e: MouseEvent) => {
       if (!state.current.isDown) return;
       e.preventDefault();
@@ -756,30 +890,21 @@ function LoginModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <h3>Área da vendedora</h3>
-        <p>Digite a senha para liberar a edição dos preços dos playgrounds.</p>
+        <p>Digite a senha para liberar a edição dos playgrounds, fotos, preços e telefone.</p>
         <input
           type="password"
           placeholder="Senha"
           value={pwd}
           autoFocus
-          onChange={(e) => {
-            setPwd(e.target.value);
-            setErr(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              if (!onSubmit(pwd)) setErr(true);
-            }
-          }}
+          onChange={(e) => { setPwd(e.target.value); setErr(false); }}
+          onKeyDown={(e) => { if (e.key === "Enter") { if (!onSubmit(pwd)) setErr(true); } }}
         />
         {err && <div className="modal-error">Senha incorreta. Tente novamente.</div>}
         <div className="modal-actions">
           <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
           <button
             className="btn btn-primary"
-            onClick={() => {
-              if (!onSubmit(pwd)) setErr(true);
-            }}
+            onClick={() => { if (!onSubmit(pwd)) setErr(true); }}
           >
             Entrar
           </button>
@@ -790,7 +915,7 @@ function LoginModal({
 }
 
 /* ================================================================
-   WHATSAPP ICON — clean, official-style path
+   WHATSAPP ICON
    ================================================================ */
 function WhatsAppIcon() {
   return (
