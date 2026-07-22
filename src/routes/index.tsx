@@ -6,7 +6,6 @@ import quoteAsset from "@/assets/quote.jpg.asset.json";
 import product1Asset from "@/assets/product1.jpg.asset.json";
 import product2Asset from "@/assets/product2.jpg.asset.json";
 import product3Asset from "@/assets/product3.jpg.asset.json";
-import termsAsset from "@/assets/terms.jpg.asset.json";
 import contactAsset from "@/assets/contact.jpg.asset.json";
 import logoAsset from "@/assets/playrio-logo.png.asset.json";
 
@@ -23,11 +22,9 @@ const WHATSAPP_MSG = encodeURIComponent(
   "Olá! Vim pelo orçamento online da Play Rio e gostaria de mais informações."
 );
 
-/** Converte "(17) 3305-3929" → "551733053929" (E.164 sem +) */
 function phoneToWa(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (!digits) return "5517333053929";
-  // se já começa com 55 e tem 12-13 dígitos, usa direto
   if (digits.startsWith("55") && digits.length >= 12) return digits;
   return "55" + digits;
 }
@@ -39,19 +36,23 @@ function telLink(phone: string): string {
 }
 
 /* ================================================================
-   PRODUCT MODEL
+   MODELS
    ================================================================ */
 type Product = {
   id: string;
   title: string;
   areaTag: string;
-  image: string; // URL or data URL
+  image: string;
   priceOld: string;
   priceNew: string;
   tag: string;
   tagColor: string;
   items: string[];
 };
+
+type Field = { id: string; label: string; value: string };
+type LoadItem = { id: string; n: string; l: string; d: string };
+type PayStep = { id: string; num: string; title: string; desc: string };
 
 const DEFAULT_PRODUCTS: Product[] = [
   {
@@ -119,6 +120,29 @@ const DEFAULT_PRODUCTS: Product[] = [
   },
 ];
 
+const DEFAULT_QUOTE_INFO: Field[] = [
+  { id: "vendedora", label: "Vendedora", value: "" },
+  { id: "cliente", label: "Cliente", value: "" },
+  { id: "documento", label: "CPF / CNPJ", value: "" },
+  { id: "data", label: "Data do orçamento", value: "" },
+];
+
+const DEFAULT_LOADS: LoadItem[] = [
+  { id: "l1", n: "130kg", l: "Balanço teen", d: "Capacidade máxima de carga" },
+  { id: "l2", n: "50kg", l: "Balanço baby", d: "Capacidade máxima de carga" },
+  { id: "l3", n: "100kg", l: "Escorregadores", d: "Capacidade máxima de carga" },
+  { id: "l4", n: "80kg", l: "Rapel e corda", d: "Capacidade máxima de carga" },
+];
+
+const DEFAULT_PAY_STEPS: PayStep[] = [
+  { id: "p1", num: "01", title: "Sinal inicial", desc: "R$ 500,00 para confirmação do pedido." },
+  { id: "p2", num: "02", title: "Restante do pagamento", desc: "À vista, no ato da entrega." },
+  { id: "p3", num: "03", title: "Parcelamento disponível", desc: "Até 10x sem juros (cheque ou boleto bancário com CNPJ)." },
+];
+
+const DEFAULT_DOCS = ["Nome completo", "Endereço completo", "CPF/CNPJ", "Fotos/vídeos do local de instalação"];
+const DEFAULT_FLOORS = ["Grama", "Terra", "Areia", "Concreto", "Piso"];
+
 const TAG_COLORS = [
   { label: "Verde", value: "var(--green)" },
   { label: "Azul", value: "var(--sky)" },
@@ -130,10 +154,13 @@ const TAG_COLORS = [
 const PRODUCTS_KEY = "playrio_products_v2";
 const PHONE_KEY = "playrio_phone_v1";
 const THEME_KEY = "playrio_theme";
+const QUOTE_INFO_KEY = "playrio_quote_info_v1";
+const LOADS_KEY = "playrio_loads_v1";
+const PAY_KEY = "playrio_pay_v1";
+const DOCS_KEY = "playrio_docs_v1";
+const FLOORS_KEY = "playrio_floors_v1";
+const IMAGES_KEY = "playrio_images_v1";
 
-/* ================================================================
-   MATERIAIS - carrossel
-   ================================================================ */
 const MATERIALS = [
   { icon: "Aç", color: "var(--orange)", title: "Aço estrutural", text: "Perfis de aço com pintura eletrostática epóxi que repele calor e mantém as cores vivas por muito mais tempo." },
   { icon: "Fi", color: "var(--sky)", title: "Fibra de vidro", text: "Escorregadores, telhadinhos e rapel em fibra de alta resistência, próprios para uso intensivo ao ar livre." },
@@ -151,33 +178,55 @@ function OrcamentoPage() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
   const [phone, setPhone] = useState<string>(DEFAULT_PHONE);
+  const [quoteInfo, setQuoteInfo] = useState<Field[]>(DEFAULT_QUOTE_INFO);
+  const [loads, setLoads] = useState<LoadItem[]>(DEFAULT_LOADS);
+  const [paySteps, setPaySteps] = useState<PayStep[]>(DEFAULT_PAY_STEPS);
+  const [docs, setDocs] = useState<string[]>(DEFAULT_DOCS);
+  const [floors, setFloors] = useState<string[]>(DEFAULT_FLOORS);
+  const [images, setImages] = useState<Record<string, string>>({});
   const [editMode, setEditMode] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
-  // Load persisted state on mount
   useEffect(() => {
     try {
       const t = (localStorage.getItem(THEME_KEY) as "light" | "dark" | null) ?? "light";
       setTheme(t);
       document.documentElement.setAttribute("data-theme", t);
-      const raw = localStorage.getItem(PRODUCTS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Product[];
-        if (Array.isArray(parsed) && parsed.length) setProducts(parsed);
-      }
+      const load = <T,>(k: string, setter: (v: T) => void) => {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          try { setter(JSON.parse(raw) as T); } catch { /* ignore */ }
+        }
+      };
+      load<Product[]>(PRODUCTS_KEY, (v) => Array.isArray(v) && v.length && setProducts(v));
+      load<Field[]>(QUOTE_INFO_KEY, (v) => Array.isArray(v) && setQuoteInfo(v));
+      load<LoadItem[]>(LOADS_KEY, (v) => Array.isArray(v) && v.length && setLoads(v));
+      load<PayStep[]>(PAY_KEY, (v) => Array.isArray(v) && v.length && setPaySteps(v));
+      load<string[]>(DOCS_KEY, (v) => Array.isArray(v) && setDocs(v));
+      load<string[]>(FLOORS_KEY, (v) => Array.isArray(v) && setFloors(v));
+      load<Record<string, string>>(IMAGES_KEY, (v) => v && setImages(v));
       const p = localStorage.getItem(PHONE_KEY);
       if (p) setPhone(p);
     } catch { /* ignore */ }
   }, []);
 
-  const persistProducts = (list: Product[]) => {
-    setProducts(list);
-    try { localStorage.setItem(PRODUCTS_KEY, JSON.stringify(list)); } catch { /* quota */ }
+  const persist = <T,>(key: string, value: T, setter: (v: T) => void) => {
+    setter(value);
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* quota */ }
   };
-  const persistPhone = (p: string) => {
-    setPhone(p);
-    try { localStorage.setItem(PHONE_KEY, p); } catch { /* ignore */ }
+  const persistProducts = (list: Product[]) => persist(PRODUCTS_KEY, list, setProducts);
+  const persistPhone = (p: string) => { setPhone(p); try { localStorage.setItem(PHONE_KEY, p); } catch { /* ignore */ } };
+  const persistQuoteInfo = (v: Field[]) => persist(QUOTE_INFO_KEY, v, setQuoteInfo);
+  const persistLoads = (v: LoadItem[]) => persist(LOADS_KEY, v, setLoads);
+  const persistPay = (v: PayStep[]) => persist(PAY_KEY, v, setPaySteps);
+  const persistDocs = (v: string[]) => persist(DOCS_KEY, v, setDocs);
+  const persistFloors = (v: string[]) => persist(FLOORS_KEY, v, setFloors);
+  const persistImages = (v: Record<string, string>) => persist(IMAGES_KEY, v, setImages);
+
+  const setImage = (key: string, dataUrl: string) => {
+    persistImages({ ...images, [key]: dataUrl });
   };
+  const getImage = (key: string, fallback: string) => images[key] || fallback;
 
   const toggleTheme = () => {
     const next = theme === "light" ? "dark" : "light";
@@ -194,43 +243,89 @@ function OrcamentoPage() {
     }
     return false;
   };
-
   const exitEdit = () => setEditMode(false);
 
   const updateProduct = (id: string, patch: Partial<Product>) => {
     persistProducts(products.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   };
   const deleteProduct = (id: string) => {
-    if (!confirm("Excluir este playground? Esta ação não pode ser desfeita.")) return;
+    if (!confirm("Excluir este playground?")) return;
     persistProducts(products.filter((p) => p.id !== id));
   };
   const addProduct = () => {
     const id = "novo_" + Date.now();
-    persistProducts([
-      ...products,
-      {
-        id,
-        title: "Novo Playground",
-        areaTag: "Área: 0x0 metros",
-        image: product1Asset.url,
-        priceOld: "R$ 0,00",
-        priceNew: "R$ 0,00",
-        tag: "Frete e instalação grátis",
-        tagColor: "var(--green)",
-        items: ["Item de exemplo — clique para editar"],
-      },
-    ]);
-    // scroll para o novo card
-    setTimeout(() => {
-      const el = document.getElementById("prod-" + id);
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
+    persistProducts([...products, {
+      id, title: "Novo Playground", areaTag: "Área: 0x0 metros",
+      image: product1Asset.url, priceOld: "R$ 0,00", priceNew: "R$ 0,00",
+      tag: "Frete e instalação grátis", tagColor: "var(--green)",
+      items: ["Item de exemplo — clique para editar"],
+    }]);
+    setTimeout(() => document.getElementById("prod-" + id)?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
   };
 
   const resetAll = () => {
-    if (!confirm("Restaurar todos os playgrounds e telefone para o padrão?")) return;
+    if (!confirm("Restaurar tudo para o padrão? Isso apagará todas as edições.")) return;
     persistProducts(DEFAULT_PRODUCTS);
     persistPhone(DEFAULT_PHONE);
+    persistQuoteInfo(DEFAULT_QUOTE_INFO);
+    persistLoads(DEFAULT_LOADS);
+    persistPay(DEFAULT_PAY_STEPS);
+    persistDocs(DEFAULT_DOCS);
+    persistFloors(DEFAULT_FLOORS);
+    persistImages({});
+  };
+
+  const downloadHtml = () => {
+    try {
+      // Clone the current document, remove edit UI, then serialize
+      const clone = document.documentElement.cloneNode(true) as HTMLElement;
+      // Remove edit-only elements
+      clone.querySelectorAll(
+        ".edit-banner, .photo-edit-btn, .delete-product-btn, .item-del, .add-item-btn, .add-product-btn, .field-del, .add-field-btn, .tag-color-select, .modal-overlay, .icon-btn"
+      ).forEach((el) => el.remove());
+      // Remove contentEditable attributes
+      clone.querySelectorAll('[contenteditable="true"]').forEach((el) => el.removeAttribute("contenteditable"));
+      // Convert phone input to plain text
+      clone.querySelectorAll("input.phone-input").forEach((el) => {
+        const span = document.createElement("span");
+        span.textContent = (el as HTMLInputElement).value;
+        el.replaceWith(span);
+      });
+      // Inline the current stylesheets
+      const styles = Array.from(document.styleSheets)
+        .map((sheet) => {
+          try {
+            return Array.from(sheet.cssRules).map((r) => r.cssText).join("\n");
+          } catch { return ""; }
+        })
+        .join("\n");
+      const head = clone.querySelector("head");
+      if (head) {
+        head.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => el.remove());
+        const styleEl = document.createElement("style");
+        styleEl.textContent = styles;
+        head.appendChild(styleEl);
+        // Re-add fonts link
+        const fontLink = document.createElement("link");
+        fontLink.rel = "stylesheet";
+        fontLink.href = "https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap";
+        head.appendChild(fontLink);
+      }
+      const html = "<!DOCTYPE html>\n" + clone.outerHTML;
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.download = `orcamento-playrio-${stamp}.html`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error(err);
+      alert("Não foi possível gerar o HTML. Tente novamente.");
+    }
   };
 
   const wa = waLink(phone);
@@ -244,12 +339,7 @@ function OrcamentoPage() {
             <img className="brand-logo" src={logoAsset.url} alt="Play Rio Playgrounds" />
           </a>
           <div className="nav-right">
-            <button
-              className="icon-btn"
-              onClick={toggleTheme}
-              aria-label="Alternar tema"
-              title="Alternar tema claro ou escuro"
-            >
+            <button className="icon-btn" onClick={toggleTheme} aria-label="Alternar tema" title="Tema claro/escuro">
               {theme === "light" ? (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <circle cx="12" cy="12" r="4.2" />
@@ -260,6 +350,13 @@ function OrcamentoPage() {
                   <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" />
                 </svg>
               )}
+            </button>
+            <button className="icon-btn" onClick={downloadHtml} aria-label="Baixar HTML" title="Baixar orçamento em HTML">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
             </button>
             <button
               className="icon-btn"
@@ -289,6 +386,7 @@ function OrcamentoPage() {
         <div className="edit-banner">
           <span>✎ Modo edição ativo — clique em qualquer texto ou foto para alterar</span>
           <button onClick={addProduct}>+ Novo playground</button>
+          <button onClick={downloadHtml}>⬇ Baixar HTML</button>
           <button onClick={resetAll}>Restaurar padrão</button>
           <button onClick={exitEdit}>Sair</button>
         </div>
@@ -321,10 +419,22 @@ function OrcamentoPage() {
                 Garantia de 1 ano
               </span>
             </div>
+
+            {/* QUOTE INFO — editável, primeira parte do site */}
+            <QuoteInfoCard
+              info={quoteInfo}
+              editMode={editMode}
+              onChange={persistQuoteInfo}
+            />
           </div>
-          <div className="hero-photo hover-frame">
-            <img src={heroAsset.url} alt="Playground Play Rio instalado" />
-          </div>
+          <EditableImage
+            className="hero-photo hover-frame"
+            imgKey="hero"
+            src={getImage("hero", heroAsset.url)}
+            alt="Playground Play Rio instalado"
+            editMode={editMode}
+            onPick={setImage}
+          />
         </div>
       </section>
 
@@ -364,9 +474,14 @@ function OrcamentoPage() {
                 </div>
               </div>
             </div>
-            <div className="quote-photo hover-frame">
-              <img src={quoteAsset.url} alt="Playground Play Rio em detalhe" />
-            </div>
+            <EditableImage
+              className="quote-photo hover-frame"
+              imgKey="quote"
+              src={getImage("quote", quoteAsset.url)}
+              alt="Playground Play Rio em detalhe"
+              editMode={editMode}
+              onPick={setImage}
+            />
           </div>
         </div>
       </section>
@@ -406,7 +521,7 @@ function OrcamentoPage() {
         </div>
       </section>
 
-      {/* MATERIALS CARROUSEL */}
+      {/* MATERIALS */}
       <section className="section tight" id="materiais">
         <div className="wrap">
           <div className="section-head">
@@ -420,23 +535,51 @@ function OrcamentoPage() {
           </div>
           <MaterialsCarousel />
           <p className="carousel-hint">
-            <span>← Arraste para ver mais →</span>
+            <span>← Arraste ou aguarde a animação →</span>
           </p>
         </div>
       </section>
 
-      {/* LOAD CAPACITY */}
+      {/* LOAD CAPACITY — bonita e brilhosa */}
       <section className="load-section" id="capacidade">
+        <div className="load-glow" aria-hidden="true" />
         <div className="wrap">
           <span className="section-eyebrow" style={{ color: "var(--yellow)" }}>
             Segurança em números
           </span>
           <h2 style={{ color: "white", fontSize: "clamp(1.8rem,3.4vw,2.5rem)" }}>Capacidade de carga</h2>
-          <div className="load-grid">
-            <div className="load-item"><div className="n">130kg</div><div className="l">Balanço teen</div><div className="d">Capacidade máxima de carga</div></div>
-            <div className="load-item"><div className="n">50kg</div><div className="l">Balanço baby</div><div className="d">Capacidade máxima de carga</div></div>
-            <div className="load-item"><div className="n">100kg</div><div className="l">Escorregadores</div><div className="d">Capacidade máxima de carga</div></div>
-            <div className="load-item"><div className="n">80kg</div><div className="l">Rapel e corda</div><div className="d">Capacidade máxima de carga</div></div>
+          <div className="load-grid shiny">
+            {loads.map((it, i) => (
+              <div key={it.id} className="load-card" style={{ "--i": i } as CSSProperties}>
+                <div className="load-shine" aria-hidden="true" />
+                <EditableSpan
+                  className="n"
+                  value={it.n}
+                  editMode={editMode}
+                  onCommit={(v) => persistLoads(loads.map((x) => x.id === it.id ? { ...x, n: v } : x))}
+                />
+                <EditableSpan
+                  className="l"
+                  value={it.l}
+                  editMode={editMode}
+                  onCommit={(v) => persistLoads(loads.map((x) => x.id === it.id ? { ...x, l: v } : x))}
+                />
+                <EditableSpan
+                  className="d"
+                  value={it.d}
+                  editMode={editMode}
+                  onCommit={(v) => persistLoads(loads.map((x) => x.id === it.id ? { ...x, d: v } : x))}
+                />
+                {editMode && (
+                  <button className="load-del" onClick={() => persistLoads(loads.filter((x) => x.id !== it.id))} title="Remover">×</button>
+                )}
+              </div>
+            ))}
+            {editMode && (
+              <button className="load-add" onClick={() => persistLoads([...loads, { id: "l" + Date.now(), n: "0kg", l: "Novo item", d: "Descrição" }])}>
+                + Adicionar
+              </button>
+            )}
           </div>
           <p className="load-foot">
             Público-alvo: faixa etária de 04 a 14 anos. Crianças abaixo de 04 anos devem utilizar sob supervisão de um adulto.
@@ -444,35 +587,59 @@ function OrcamentoPage() {
         </div>
       </section>
 
-      {/* TERMS */}
-      <section className="section" id="condicoes">
+      {/* PAYMENT — sem imagem, interativo, brilhoso */}
+      <section className="section pay-section" id="condicoes">
         <div className="wrap">
-          <div className="terms-grid">
-            <div className="terms-photo hover-frame">
-              <img src={termsAsset.url} alt="Instalação Play Rio" />
-            </div>
-            <div>
-              <span className="section-eyebrow">Como funciona o pagamento</span>
-              <h2 style={{ marginBottom: 8 }}>Condições comerciais</h2>
-              <div className="term-step">
-                <div className="term-num">01</div>
-                <div><h4>Sinal inicial</h4><p>R$ 500,00 para confirmação do pedido.</p></div>
+          <div className="pay-head">
+            <span className="section-eyebrow">Como funciona o pagamento</span>
+            <h2>Condições comerciais</h2>
+            <p className="section-note" style={{ maxWidth: "56ch" }}>
+              Processo transparente, em três etapas simples. Confirme o pedido com um sinal e escolha a melhor forma de finalizar.
+            </p>
+          </div>
+
+          <div className="pay-grid">
+            {paySteps.map((step, i) => (
+              <div key={step.id} className="pay-step" style={{ "--i": i } as CSSProperties}>
+                <div className="pay-glow" aria-hidden="true" />
+                <div className="pay-num-wrap">
+                  <EditableSpan
+                    className="pay-num"
+                    value={step.num}
+                    editMode={editMode}
+                    onCommit={(v) => persistPay(paySteps.map((x) => x.id === step.id ? { ...x, num: v } : x))}
+                  />
+                </div>
+                <EditableSpan
+                  as="h3"
+                  className="pay-title"
+                  value={step.title}
+                  editMode={editMode}
+                  onCommit={(v) => persistPay(paySteps.map((x) => x.id === step.id ? { ...x, title: v } : x))}
+                />
+                <EditableSpan
+                  className="pay-desc"
+                  value={step.desc}
+                  editMode={editMode}
+                  onCommit={(v) => persistPay(paySteps.map((x) => x.id === step.id ? { ...x, desc: v } : x))}
+                />
+                {editMode && (
+                  <button className="pay-del" onClick={() => persistPay(paySteps.filter((x) => x.id !== step.id))} title="Remover">×</button>
+                )}
+                {i < paySteps.length - 1 && <div className="pay-arrow" aria-hidden="true">→</div>}
               </div>
-              <div className="term-step">
-                <div className="term-num">02</div>
-                <div><h4>Restante do pagamento</h4><p>À vista, no ato da entrega.</p></div>
-              </div>
-              <div className="term-step">
-                <div className="term-num">03</div>
-                <div><h4>Parcelamento disponível</h4><p>Até 10x sem juros (cheque ou boleto bancário com CNPJ).</p></div>
-              </div>
-            </div>
+            ))}
+            {editMode && (
+              <button className="pay-add" onClick={() => persistPay([...paySteps, { id: "p" + Date.now(), num: String(paySteps.length + 1).padStart(2, "0"), title: "Nova etapa", desc: "Descrição" }])}>
+                + Adicionar etapa
+              </button>
+            )}
           </div>
         </div>
       </section>
 
-      {/* REQS */}
-      <section className="section tight" id="instalacao">
+      {/* REQS — brilhosos */}
+      <section className="section tight reqs-section" id="instalacao">
         <div className="wrap">
           <div className="section-head">
             <div>
@@ -481,25 +648,32 @@ function OrcamentoPage() {
             </div>
           </div>
           <div className="req-grid">
-            <div className="req-card">
-              <h4>Documentação necessária</h4>
-              <ul>
-                <li>Nome completo</li>
-                <li>Endereço completo</li>
-                <li>CPF/CNPJ</li>
-                <li>Fotos/vídeos do local de instalação</li>
-              </ul>
-            </div>
-            <div className="req-card alt">
-              <h4>Tipos de piso aceitos</h4>
-              <ul>
-                <li>Grama</li>
-                <li>Terra</li>
-                <li>Areia</li>
-                <li>Concreto</li>
-                <li>Piso</li>
-              </ul>
-            </div>
+            <EditableList
+              title="Documentação necessária"
+              items={docs}
+              onChange={persistDocs}
+              editMode={editMode}
+              accent="var(--violet)"
+              icon={
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              }
+            />
+            <EditableList
+              title="Tipos de piso aceitos"
+              items={floors}
+              onChange={persistFloors}
+              editMode={editMode}
+              accent="var(--sky)"
+              icon={
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+                </svg>
+              }
+            />
           </div>
         </div>
       </section>
@@ -511,14 +685,20 @@ function OrcamentoPage() {
       {/* CONTACT */}
       <section className="contact" id="contato">
         <div className="contact-inner">
-          <div className="contact-photo">
-            <img src={contactAsset.url} alt="Crianças no playground Play Rio" />
+          <EditableImage
+            className="contact-photo"
+            imgKey="contact"
+            src={getImage("contact", contactAsset.url)}
+            alt="Crianças no playground Play Rio"
+            editMode={editMode}
+            onPick={setImage}
+          >
             <div className="tagline">
               <span>Seguro,</span><br />
               <span>Colorido,</span><br />
               <span>Divertido</span>
             </div>
-          </div>
+          </EditableImage>
           <div className="contact-body">
             <img className="contact-logo" src={logoAsset.url} alt="Play Rio Playgrounds" />
             <h2>Entre em contato</h2>
@@ -586,7 +766,6 @@ function OrcamentoPage() {
         </div>
       </section>
 
-      {/* FLOATING WA */}
       <a className="wa-float" href={wa} target="_blank" rel="noopener noreferrer" aria-label="Falar no WhatsApp">
         <span className="wa-pulse" aria-hidden="true" />
         <WhatsAppIcon />
@@ -598,15 +777,153 @@ function OrcamentoPage() {
 }
 
 /* ================================================================
-   PRODUCT CARD (com edição completa)
+   QUOTE INFO (Cliente / Vendedora / CNPJ, etc)
+   ================================================================ */
+function QuoteInfoCard({
+  info, editMode, onChange,
+}: {
+  info: Field[];
+  editMode: boolean;
+  onChange: (v: Field[]) => void;
+}) {
+  const updateField = (id: string, patch: Partial<Field>) =>
+    onChange(info.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+  const removeField = (id: string) => onChange(info.filter((f) => f.id !== id));
+  const addField = () =>
+    onChange([...info, { id: "f" + Date.now(), label: "Novo campo", value: "" }]);
+
+  // Hide card entirely if nothing filled and not editing
+  const hasContent = info.some((f) => f.value.trim());
+  if (!editMode && !hasContent) return null;
+
+  return (
+    <div className="quote-info">
+      <div className="quote-info-head">
+        <span className="quote-info-eyebrow">Dados do orçamento</span>
+        {editMode && (
+          <button className="add-field-btn" onClick={addField}>+ Adicionar campo</button>
+        )}
+      </div>
+      <div className="quote-info-grid">
+        {info.map((f) => (
+          <div key={f.id} className="quote-info-field">
+            <EditableSpan
+              className="qi-label"
+              value={f.label}
+              editMode={editMode}
+              onCommit={(v) => updateField(f.id, { label: v })}
+            />
+            <EditableSpan
+              className="qi-value"
+              value={f.value || (editMode ? "—" : "")}
+              editMode={editMode}
+              onCommit={(v) => updateField(f.id, { value: v === "—" ? "" : v })}
+              placeholder="—"
+            />
+            {editMode && (
+              <button className="field-del" onClick={() => removeField(f.id)} title="Remover campo">×</button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
+   EDITABLE LIST (docs, floors)
+   ================================================================ */
+function EditableList({
+  title, items, onChange, editMode, accent, icon,
+}: {
+  title: string;
+  items: string[];
+  onChange: (v: string[]) => void;
+  editMode: boolean;
+  accent: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="req-card shiny" style={{ "--accent": accent } as CSSProperties}>
+      <div className="req-shine" aria-hidden="true" />
+      <div className="req-head">
+        <div className="req-icon">{icon}</div>
+        <h4>{title}</h4>
+      </div>
+      <ul>
+        {items.map((it, idx) => (
+          <li key={idx}>
+            <EditableSpan
+              value={it}
+              editMode={editMode}
+              onCommit={(v) => onChange(items.map((x, i) => (i === idx ? v : x)))}
+            />
+            {editMode && (
+              <button className="item-del" onClick={() => onChange(items.filter((_, i) => i !== idx))} title="Remover">×</button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {editMode && (
+        <button className="add-item-btn" onClick={() => onChange([...items, "Novo item"])}>
+          + Adicionar
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================
+   EDITABLE IMAGE
+   ================================================================ */
+function EditableImage({
+  className, imgKey, src, alt, editMode, onPick, children,
+}: {
+  className?: string;
+  imgKey: string;
+  src: string;
+  alt: string;
+  editMode: boolean;
+  onPick: (key: string, dataUrl: string) => void;
+  children?: React.ReactNode;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const pick = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      alert("Imagem grande demais (limite 3MB).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => onPick(imgKey, String(reader.result));
+    reader.readAsDataURL(file);
+  };
+  return (
+    <div className={className} style={{ position: "relative" }}>
+      <img src={src} alt={alt} />
+      {children}
+      {editMode && (
+        <>
+          <button className="photo-edit-btn" onClick={() => fileRef.current?.click()} title="Trocar foto">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+            Trocar foto
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pick} />
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================
+   PRODUCT CARD
    ================================================================ */
 function ProductCard({
-  product,
-  alt,
-  editMode,
-  onEdit,
-  onDelete,
-  accentIndex,
+  product, alt, editMode, onEdit, onDelete, accentIndex,
 }: {
   product: Product;
   alt: boolean;
@@ -617,34 +934,23 @@ function ProductCard({
 }) {
   const accents = ["var(--orange)", "var(--sky)", "var(--violet)", "var(--green)", "var(--yellow)"];
   const accent = accents[accentIndex % accents.length];
-
   const fileRef = useRef<HTMLInputElement>(null);
 
   const onPickImage = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 3 * 1024 * 1024) {
-      alert("Imagem grande demais (limite 3MB). Escolha uma foto menor.");
-      return;
-    }
+    if (file.size > 3 * 1024 * 1024) { alert("Imagem grande demais (limite 3MB)."); return; }
     const reader = new FileReader();
-    reader.onload = () => {
-      onEdit(product.id, { image: String(reader.result) });
-    };
+    reader.onload = () => onEdit(product.id, { image: String(reader.result) });
     reader.readAsDataURL(file);
   };
-
   const updateItem = (idx: number, value: string) => {
     const next = [...product.items];
     next[idx] = value;
     onEdit(product.id, { items: next });
   };
-  const removeItem = (idx: number) => {
-    onEdit(product.id, { items: product.items.filter((_, i) => i !== idx) });
-  };
-  const addItem = () => {
-    onEdit(product.id, { items: [...product.items, "Novo item"] });
-  };
+  const removeItem = (idx: number) => onEdit(product.id, { items: product.items.filter((_, i) => i !== idx) });
+  const addItem = () => onEdit(product.id, { items: [...product.items, "Novo item"] });
 
   const photo = (
     <div className="product-photo">
@@ -664,13 +970,7 @@ function ProductCard({
             </svg>
             Trocar foto
           </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={onPickImage}
-          />
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onPickImage} />
         </>
       )}
     </div>
@@ -678,65 +978,28 @@ function ProductCard({
 
   const body = (
     <div className="product-body">
-      <EditableSpan
-        as="h3"
-        className=""
-        value={product.title}
-        editMode={editMode}
-        onCommit={(v) => onEdit(product.id, { title: v })}
-      />
+      <EditableSpan as="h3" className="" value={product.title} editMode={editMode} onCommit={(v) => onEdit(product.id, { title: v })} />
       <div className="price-row">
-        <EditableSpan
-          className="price-old mono"
-          value={product.priceOld}
-          editMode={editMode}
-          onCommit={(v) => onEdit(product.id, { priceOld: v })}
-        />
-        <EditableSpan
-          className="price-new"
-          value={product.priceNew}
-          editMode={editMode}
-          onCommit={(v) => onEdit(product.id, { priceNew: v })}
-        />
+        <EditableSpan className="price-old mono" value={product.priceOld} editMode={editMode} onCommit={(v) => onEdit(product.id, { priceOld: v })} />
+        <EditableSpan className="price-new" value={product.priceNew} editMode={editMode} onCommit={(v) => onEdit(product.id, { priceNew: v })} />
       </div>
       <div className="tag-row">
-        <EditableSpan
-          className="price-tag"
-          value={product.tag}
-          editMode={editMode}
-          onCommit={(v) => onEdit(product.id, { tag: v })}
-          style={{ background: product.tagColor }}
-        />
+        <EditableSpan className="price-tag" value={product.tag} editMode={editMode} onCommit={(v) => onEdit(product.id, { tag: v })} style={{ background: product.tagColor }} />
         {editMode && (
-          <select
-            className="tag-color-select"
-            value={product.tagColor}
-            onChange={(e) => onEdit(product.id, { tagColor: e.target.value })}
-            title="Cor da tag"
-          >
-            {TAG_COLORS.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
+          <select className="tag-color-select" value={product.tagColor} onChange={(e) => onEdit(product.id, { tagColor: e.target.value })} title="Cor da tag">
+            {TAG_COLORS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
         )}
       </div>
       <ul className="comp-list">
         {product.items.map((it, idx) => (
           <li key={idx}>
-            <EditableSpan
-              value={it}
-              editMode={editMode}
-              onCommit={(v) => updateItem(idx, v)}
-            />
-            {editMode && (
-              <button className="item-del" onClick={() => removeItem(idx)} title="Remover item">×</button>
-            )}
+            <EditableSpan value={it} editMode={editMode} onCommit={(v) => updateItem(idx, v)} />
+            {editMode && <button className="item-del" onClick={() => removeItem(idx)} title="Remover">×</button>}
           </li>
         ))}
       </ul>
-      {editMode && (
-        <button className="add-item-btn" onClick={addItem}>+ Adicionar item</button>
-      )}
+      {editMode && <button className="add-item-btn" onClick={addItem}>+ Adicionar item</button>}
     </div>
   );
 
@@ -747,23 +1010,13 @@ function ProductCard({
       style={{ "--accent": accent } as CSSProperties}
     >
       {editMode && (
-        <button className="delete-product-btn" onClick={() => onDelete(product.id)} title="Excluir playground">
+        <button className="delete-product-btn" onClick={() => onDelete(product.id)} title="Excluir">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
           </svg>
         </button>
       )}
-      {alt ? (
-        <>
-          {body}
-          {photo}
-        </>
-      ) : (
-        <>
-          {photo}
-          {body}
-        </>
-      )}
+      {alt ? <>{body}{photo}</> : <>{photo}{body}</>}
     </div>
   );
 }
@@ -772,12 +1025,7 @@ function ProductCard({
    EDITABLE SPAN
    ================================================================ */
 function EditableSpan({
-  value,
-  editMode,
-  onCommit,
-  className,
-  as = "span",
-  style,
+  value, editMode, onCommit, className, as = "span", style, placeholder,
 }: {
   value: string;
   editMode: boolean;
@@ -785,12 +1033,11 @@ function EditableSpan({
   className?: string;
   as?: "span" | "h3";
   style?: CSSProperties;
+  placeholder?: string;
 }) {
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
-    if (ref.current && ref.current.textContent !== value) {
-      ref.current.textContent = value;
-    }
+    if (ref.current && ref.current.textContent !== value) ref.current.textContent = value;
   }, [value]);
   const Tag = as as "span";
   return (
@@ -801,10 +1048,10 @@ function EditableSpan({
       contentEditable={editMode}
       suppressContentEditableWarning
       spellCheck={false}
+      data-placeholder={placeholder}
       onBlur={(e) => {
         const v = (e.currentTarget as HTMLElement).textContent?.trim() ?? "";
-        if (v && v !== value) onCommit(v);
-        else (e.currentTarget as HTMLElement).textContent = value;
+        if (v !== value) onCommit(v);
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" && as !== "h3") {
@@ -819,49 +1066,77 @@ function EditableSpan({
 }
 
 /* ================================================================
-   MATERIALS CARROUSEL
+   MATERIALS CARROUSEL — animado + arrastável
    ================================================================ */
 function MaterialsCarousel() {
   const ref = useRef<HTMLDivElement>(null);
-  const state = useRef({ isDown: false, startX: 0, scrollLeft: 0, moved: false });
+  const state = useRef({ isDown: false, startX: 0, scrollLeft: 0, paused: false });
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
+    // Auto-scroll loop
+    let last = performance.now();
+    const SPEED = 32; // px per second
+    const tick = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      if (!state.current.isDown && !state.current.paused) {
+        el.scrollLeft += SPEED * dt;
+        const half = el.scrollWidth / 2;
+        if (el.scrollLeft >= half) el.scrollLeft -= half;
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+
+    const onEnter = () => { state.current.paused = true; };
+    const onExit = () => { state.current.paused = false; };
     const onDown = (e: MouseEvent) => {
       state.current.isDown = true;
-      state.current.moved = false;
       state.current.startX = e.pageX - el.offsetLeft;
       state.current.scrollLeft = el.scrollLeft;
       el.classList.add("dragging");
     };
-    const onLeave = () => { state.current.isDown = false; el.classList.remove("dragging"); };
+    const onLeave = () => { state.current.isDown = false; el.classList.remove("dragging"); state.current.paused = false; };
     const onUp = () => { state.current.isDown = false; el.classList.remove("dragging"); };
     const onMove = (e: MouseEvent) => {
       if (!state.current.isDown) return;
       e.preventDefault();
       const x = e.pageX - el.offsetLeft;
       const walk = (x - state.current.startX) * 1.4;
-      if (Math.abs(walk) > 4) state.current.moved = true;
       el.scrollLeft = state.current.scrollLeft - walk;
     };
-    el.addEventListener("mousedown", onDown);
+    el.addEventListener("mouseenter", onEnter);
     el.addEventListener("mouseleave", onLeave);
+    el.addEventListener("mousedown", onDown);
     el.addEventListener("mouseup", onUp);
     el.addEventListener("mousemove", onMove);
+    el.addEventListener("touchstart", onEnter, { passive: true });
+    el.addEventListener("touchend", onExit);
+
     return () => {
-      el.removeEventListener("mousedown", onDown);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      el.removeEventListener("mouseenter", onEnter);
       el.removeEventListener("mouseleave", onLeave);
+      el.removeEventListener("mousedown", onDown);
       el.removeEventListener("mouseup", onUp);
       el.removeEventListener("mousemove", onMove);
+      el.removeEventListener("touchstart", onEnter);
+      el.removeEventListener("touchend", onExit);
     };
   }, []);
 
+  // duplicate items to loop seamlessly
+  const items = [...MATERIALS, ...MATERIALS];
+
   return (
     <div className="materials-track" ref={ref}>
-      {MATERIALS.map((m) => (
+      {items.map((m, i) => (
         <div
-          key={m.title}
+          key={m.title + "-" + i}
           className="mat-card"
           style={{ "--accent": m.color } as CSSProperties}
         >
@@ -878,8 +1153,7 @@ function MaterialsCarousel() {
    LOGIN MODAL
    ================================================================ */
 function LoginModal({
-  onClose,
-  onSubmit,
+  onClose, onSubmit,
 }: {
   onClose: () => void;
   onSubmit: (pwd: string) => boolean;
@@ -890,7 +1164,7 @@ function LoginModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <h3>Área da vendedora</h3>
-        <p>Digite a senha para liberar a edição dos playgrounds, fotos, preços e telefone.</p>
+        <p>Digite a senha para liberar a edição.</p>
         <input
           type="password"
           placeholder="Senha"
@@ -902,25 +1176,17 @@ function LoginModal({
         {err && <div className="modal-error">Senha incorreta. Tente novamente.</div>}
         <div className="modal-actions">
           <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
-          <button
-            className="btn btn-primary"
-            onClick={() => { if (!onSubmit(pwd)) setErr(true); }}
-          >
-            Entrar
-          </button>
+          <button className="btn btn-primary" onClick={() => { if (!onSubmit(pwd)) setErr(true); }}>Entrar</button>
         </div>
       </div>
     </div>
   );
 }
 
-/* ================================================================
-   WHATSAPP ICON
-   ================================================================ */
 function WhatsAppIcon() {
   return (
     <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
-      <path d="M16.003 3C8.82 3 3 8.82 3 16c0 2.29.6 4.53 1.74 6.5L3 29l6.68-1.75A12.94 12.94 0 0016.003 29C23.18 29 29 23.18 29 16S23.18 3 16.003 3zm0 23.6c-1.98 0-3.92-.53-5.62-1.53l-.4-.24-3.96 1.04 1.06-3.86-.26-.4A10.55 10.55 0 015.4 16c0-5.85 4.76-10.6 10.6-10.6 5.85 0 10.6 4.75 10.6 10.6 0 5.85-4.75 10.6-10.6 10.6zm5.82-7.94c-.32-.16-1.88-.93-2.17-1.03-.29-.11-.5-.16-.72.16-.21.32-.82 1.03-1.01 1.24-.19.21-.37.24-.69.08-.32-.16-1.35-.5-2.57-1.6-.95-.85-1.6-1.9-1.79-2.22-.19-.32-.02-.5.14-.66.14-.14.32-.37.48-.56.16-.19.21-.32.32-.53.11-.21.05-.4-.03-.56-.08-.16-.72-1.74-.99-2.38-.26-.62-.53-.54-.72-.55h-.61c-.21 0-.56.08-.85.4-.29.32-1.11 1.08-1.11 2.64 0 1.56 1.14 3.06 1.3 3.27.16.21 2.24 3.42 5.44 4.79.76.33 1.35.52 1.81.67.76.24 1.45.21 2 .13.61-.09 1.88-.77 2.14-1.51.27-.74.27-1.37.19-1.51-.08-.13-.29-.21-.61-.37z" />
+      <path d="M19.11 17.205c-.372 0-1.088 1.39-1.518 1.39a.63.63 0 01-.315-.1c-.802-.402-1.504-.817-2.163-1.447-.545-.516-1.146-1.29-1.46-1.963a.426.426 0 01-.073-.215c0-.33.99-.945.99-1.49 0-.143-.73-2.09-.832-2.335-.143-.372-.214-.487-.6-.487-.187 0-.36-.043-.53-.043-.302 0-.53.115-.746.315-.688.645-1.032 1.318-1.06 2.264v.114c-.015.99.472 1.977 1.017 2.78 1.23 1.82 2.506 3.41 4.554 4.34.616.287 2.035.888 2.722.888.817 0 2.15-.688 2.478-1.478.13-.302.216-.702.216-1.06 0-.144-.026-.29-.06-.437-.078-.144-2.192-1.32-2.35-1.32zm-3.02 8.005a10.203 10.203 0 01-5.203-1.418l-3.73 1.19 1.212-3.6a10.171 10.171 0 01-1.55-5.394c0-5.62 4.577-10.196 10.196-10.196 5.62 0 10.196 4.577 10.196 10.196 0 5.61-4.577 10.196-10.196 10.196zm0-22.4C9.408 2.81 4 8.218 4 14.9c0 2.28.632 4.514 1.822 6.48L4 27.19l6.02-1.933a12.008 12.008 0 006.087 1.65c6.682 0 12.09-5.408 12.09-12.09.001-6.681-5.408-12.088-12.09-12.088z" />
     </svg>
   );
 }
