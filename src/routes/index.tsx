@@ -756,7 +756,7 @@ function OrcamentoPage() {
         </div>
         <div className="foot-line">
           <span>Play Rio Brinquedos — Fabricando alegrias desde 1985.</span>
-          <span>Mais de 40 anos · Tecnologia alemã · Garantia de 01 ano.</span>
+          <span>Mais de 40 anos · Tecnologia alemã · Entrega em 20 dias úteis.</span>
         </div>
       </section>
 
