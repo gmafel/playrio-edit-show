@@ -400,7 +400,7 @@ function OrcamentoPage() {
               <em>alegrias</em> desde 1985
             </h1>
             <p className="hero-sub">
-              Mais de 40 anos de tecnologia alemã em fabricação de playgrounds. Estruturas em aço com pintura eletrostática,
+              Mais de 40 anos fabricando brinquedos com tecnologia alemã. Estruturas em aço com pintura eletrostática,
               certificadas pela ABNT, prontas para transformar seu espaço em um mundo de diversão.
             </p>
             <div className="hero-badges">
@@ -414,7 +414,7 @@ function OrcamentoPage() {
               </span>
               <span className="badge" style={{ "--badge-color": "var(--green)" } as CSSProperties}>
                 <span className="dot" style={{ background: "var(--green)" }} />
-                Garantia de 1 ano
+                Entrega em 20 dias úteis
               </span>
             </div>
 
