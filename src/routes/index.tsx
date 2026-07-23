@@ -165,10 +165,8 @@ const MATERIALS = [
   { icon: "Aç", color: "var(--orange)", title: "Aço estrutural", text: "Perfis de aço com pintura eletrostática epóxi que repele calor e mantém as cores vivas por muito mais tempo." },
   { icon: "Fi", color: "var(--sky)", title: "Fibra de vidro", text: "Escorregadores, telhadinhos e rapel em fibra de alta resistência, próprios para uso intensivo ao ar livre." },
   { icon: "Pl", color: "var(--violet)", title: "Plástico rotomoldado", text: "Peças coloridas, leves e resistentes ao impacto — sem farpas, sem quinas, seguras para as crianças." },
-  { icon: "Co", color: "var(--green)", title: "Cordas náuticas", text: "Cordas trançadas com alma de aço, ideais para escaladas, teias e balanços de alto tráfego." },
   { icon: "Ma", color: "var(--yellow)", title: "Madeira plástica", text: "Alternativa ecológica que substitui a madeira tradicional: não racha, não empena e não precisa de manutenção." },
   { icon: "Al", color: "#B14AED", title: "Alumínio anticorrosivo", text: "Componentes de acabamento em alumínio tratado — leve, durável e imune à ferrugem em áreas úmidas." },
-  { icon: "In", color: "#00B8A9", title: "Inox 304", text: "Parafusos, fixadores e escadas em aço inox 304 — segurança estrutural e durabilidade máxima." },
 ];
 
 /* ================================================================
