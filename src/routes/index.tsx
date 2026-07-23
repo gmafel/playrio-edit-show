@@ -273,43 +273,63 @@ function OrcamentoPage() {
     persistImages({});
   };
 
-  const downloadHtml = () => {
-    try {
-      // Clone the current document, remove edit UI, then serialize
-      const clone = document.documentElement.cloneNode(true) as HTMLElement;
-      // Remove edit-only elements
-      clone.querySelectorAll(
-        ".edit-banner, .photo-edit-btn, .delete-product-btn, .item-del, .add-item-btn, .add-product-btn, .field-del, .add-field-btn, .tag-color-select, .modal-overlay, .icon-btn"
-      ).forEach((el) => el.remove());
-      // Remove contentEditable attributes
-      clone.querySelectorAll('[contenteditable="true"]').forEach((el) => el.removeAttribute("contenteditable"));
-      // Convert phone input to plain text
-      clone.querySelectorAll("input.phone-input").forEach((el) => {
-        const span = document.createElement("span");
-        span.textContent = (el as HTMLInputElement).value;
-        el.replaceWith(span);
-      });
-      // Inline the current stylesheets
-      const styles = Array.from(document.styleSheets)
-        .map((sheet) => {
-          try {
-            return Array.from(sheet.cssRules).map((r) => r.cssText).join("\n");
-          } catch { return ""; }
-        })
-        .join("\n");
-      const head = clone.querySelector("head");
-      if (head) {
-        head.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => el.remove());
-        const styleEl = document.createElement("style");
-        styleEl.textContent = styles;
-        head.appendChild(styleEl);
-        // Re-add fonts link
-        const fontLink = document.createElement("link");
-        fontLink.rel = "stylesheet";
-        fontLink.href = "https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap";
-        head.appendChild(fontLink);
+  const inlineAllImages = async (root: HTMLElement) => {
+    const imgs = Array.from(root.querySelectorAll("img"));
+    await Promise.all(imgs.map(async (img) => {
+      const src = img.getAttribute("src") || "";
+      if (!src || src.startsWith("data:")) return;
+      try {
+        const abs = new URL(src, window.location.href).href;
+        const res = await fetch(abs);
+        const blob = await res.blob();
+        const dataUrl: string = await new Promise((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(String(fr.result));
+          fr.onerror = () => reject(fr.error);
+          fr.readAsDataURL(blob);
+        });
+        img.setAttribute("src", dataUrl);
+      } catch {
+        /* ignore — leave the original src */
       }
-      const html = "<!DOCTYPE html>\n" + clone.outerHTML;
+    }));
+  };
+
+  const buildStandaloneDocument = async (): Promise<string> => {
+    const clone = document.documentElement.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll(
+      ".edit-banner, .photo-edit-btn, .delete-product-btn, .item-del, .add-item-btn, .add-product-btn, .field-del, .add-field-btn, .tag-color-select, .modal-overlay, .icon-btn, .load-del, .load-add, .pay-del, .pay-add, .wa-float"
+    ).forEach((el) => el.remove());
+    clone.querySelectorAll('[contenteditable="true"]').forEach((el) => el.removeAttribute("contenteditable"));
+    clone.querySelectorAll("input.phone-input").forEach((el) => {
+      const span = document.createElement("span");
+      span.textContent = (el as HTMLInputElement).value;
+      el.replaceWith(span);
+    });
+    await inlineAllImages(clone);
+    const styles = Array.from(document.styleSheets)
+      .map((sheet) => {
+        try { return Array.from(sheet.cssRules).map((r) => r.cssText).join("\n"); }
+        catch { return ""; }
+      })
+      .join("\n");
+    const head = clone.querySelector("head");
+    if (head) {
+      head.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => el.remove());
+      const styleEl = document.createElement("style");
+      styleEl.textContent = styles;
+      head.appendChild(styleEl);
+      const fontLink = document.createElement("link");
+      fontLink.rel = "stylesheet";
+      fontLink.href = "https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap";
+      head.appendChild(fontLink);
+    }
+    return "<!DOCTYPE html>\n" + clone.outerHTML;
+  };
+
+  const downloadHtml = async () => {
+    try {
+      const html = await buildStandaloneDocument();
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -325,6 +345,46 @@ function OrcamentoPage() {
       alert("Não foi possível gerar o HTML. Tente novamente.");
     }
   };
+
+  const downloadPdf = async () => {
+    try {
+      const html = await buildStandaloneDocument();
+      // Render in a hidden iframe so the PDF uses the standalone doc (with inlined imgs)
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.left = "-10000px";
+      iframe.style.top = "0";
+      iframe.style.width = "1100px";
+      iframe.style.height = "1600px";
+      document.body.appendChild(iframe);
+      const doc = iframe.contentDocument!;
+      doc.open(); doc.write(html); doc.close();
+      // Wait for images
+      await new Promise((r) => setTimeout(r, 600));
+      const target = doc.body;
+      const mod = await import("html2pdf.js");
+      const html2pdf = (mod as { default: (...args: unknown[]) => unknown }).default;
+      const stamp = new Date().toISOString().slice(0, 10);
+      await (html2pdf as (el: unknown) => {
+        set: (opts: unknown) => { from: (el: unknown) => { save: () => Promise<void> } };
+      })(target)
+        .set({
+          margin: [10, 10, 10, 10],
+          filename: `orcamento-playrio-${stamp}.pdf`,
+          image: { type: "jpeg", quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: null, windowWidth: 1100 },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          pagebreak: { mode: ["css", "legacy"] },
+        })
+        .from(target)
+        .save();
+      iframe.remove();
+    } catch (err) {
+      console.error(err);
+      alert("Não foi possível gerar o PDF. Tente novamente.");
+    }
+  };
+
 
   const wa = waLink(phone);
 
