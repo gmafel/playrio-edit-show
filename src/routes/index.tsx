@@ -444,8 +444,8 @@ function OrcamentoPage() {
       <section className="trust">
         <div className="trust-inner">
           <div className="trust-item"><div className="num">40+</div><div className="lbl">Anos fabricando playgrounds (desde 1985)</div></div>
-          <div className="trust-item"><div className="num">30–40</div><div className="lbl">Dias para entrega após confirmação</div></div>
-          <div className="trust-item"><div className="num">01 ano</div><div className="lbl">De garantia de fabricação</div></div>
+          <div className="trust-item"><div className="num">20 dias</div><div className="lbl">Úteis para entrega após confirmação</div></div>
+          <div className="trust-item"><div className="num">700km</div><div className="lbl">Frete e instalação grátis a partir de SJRP</div></div>
           <div className="trust-item"><div className="num">ABNT</div><div className="lbl">Conformidade com NBR 16071-2012</div></div>
         </div>
       </section>
