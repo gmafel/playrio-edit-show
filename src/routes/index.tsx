@@ -452,6 +452,7 @@ function OrcamentoPage() {
           <span>✎ Modo edição ativo — clique em qualquer texto ou foto para alterar</span>
           <button onClick={addProduct}>+ Novo playground</button>
           <button onClick={downloadHtml}>⬇ Baixar HTML</button>
+          <button onClick={downloadPdf}>⬇ Baixar PDF</button>
           <button onClick={resetAll}>Restaurar padrão</button>
           <button onClick={exitEdit}>Sair</button>
         </div>
