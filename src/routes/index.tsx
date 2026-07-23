@@ -165,10 +165,8 @@ const MATERIALS = [
   { icon: "Aç", color: "var(--orange)", title: "Aço estrutural", text: "Perfis de aço com pintura eletrostática epóxi que repele calor e mantém as cores vivas por muito mais tempo." },
   { icon: "Fi", color: "var(--sky)", title: "Fibra de vidro", text: "Escorregadores, telhadinhos e rapel em fibra de alta resistência, próprios para uso intensivo ao ar livre." },
   { icon: "Pl", color: "var(--violet)", title: "Plástico rotomoldado", text: "Peças coloridas, leves e resistentes ao impacto — sem farpas, sem quinas, seguras para as crianças." },
-  { icon: "Co", color: "var(--green)", title: "Cordas náuticas", text: "Cordas trançadas com alma de aço, ideais para escaladas, teias e balanços de alto tráfego." },
   { icon: "Ma", color: "var(--yellow)", title: "Madeira plástica", text: "Alternativa ecológica que substitui a madeira tradicional: não racha, não empena e não precisa de manutenção." },
   { icon: "Al", color: "#B14AED", title: "Alumínio anticorrosivo", text: "Componentes de acabamento em alumínio tratado — leve, durável e imune à ferrugem em áreas úmidas." },
-  { icon: "In", color: "#00B8A9", title: "Inox 304", text: "Parafusos, fixadores e escadas em aço inox 304 — segurança estrutural e durabilidade máxima." },
 ];
 
 /* ================================================================
@@ -275,43 +273,63 @@ function OrcamentoPage() {
     persistImages({});
   };
 
-  const downloadHtml = () => {
-    try {
-      // Clone the current document, remove edit UI, then serialize
-      const clone = document.documentElement.cloneNode(true) as HTMLElement;
-      // Remove edit-only elements
-      clone.querySelectorAll(
-        ".edit-banner, .photo-edit-btn, .delete-product-btn, .item-del, .add-item-btn, .add-product-btn, .field-del, .add-field-btn, .tag-color-select, .modal-overlay, .icon-btn"
-      ).forEach((el) => el.remove());
-      // Remove contentEditable attributes
-      clone.querySelectorAll('[contenteditable="true"]').forEach((el) => el.removeAttribute("contenteditable"));
-      // Convert phone input to plain text
-      clone.querySelectorAll("input.phone-input").forEach((el) => {
-        const span = document.createElement("span");
-        span.textContent = (el as HTMLInputElement).value;
-        el.replaceWith(span);
-      });
-      // Inline the current stylesheets
-      const styles = Array.from(document.styleSheets)
-        .map((sheet) => {
-          try {
-            return Array.from(sheet.cssRules).map((r) => r.cssText).join("\n");
-          } catch { return ""; }
-        })
-        .join("\n");
-      const head = clone.querySelector("head");
-      if (head) {
-        head.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => el.remove());
-        const styleEl = document.createElement("style");
-        styleEl.textContent = styles;
-        head.appendChild(styleEl);
-        // Re-add fonts link
-        const fontLink = document.createElement("link");
-        fontLink.rel = "stylesheet";
-        fontLink.href = "https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap";
-        head.appendChild(fontLink);
+  const inlineAllImages = async (root: HTMLElement) => {
+    const imgs = Array.from(root.querySelectorAll("img"));
+    await Promise.all(imgs.map(async (img) => {
+      const src = img.getAttribute("src") || "";
+      if (!src || src.startsWith("data:")) return;
+      try {
+        const abs = new URL(src, window.location.href).href;
+        const res = await fetch(abs);
+        const blob = await res.blob();
+        const dataUrl: string = await new Promise((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(String(fr.result));
+          fr.onerror = () => reject(fr.error);
+          fr.readAsDataURL(blob);
+        });
+        img.setAttribute("src", dataUrl);
+      } catch {
+        /* ignore — leave the original src */
       }
-      const html = "<!DOCTYPE html>\n" + clone.outerHTML;
+    }));
+  };
+
+  const buildStandaloneDocument = async (): Promise<string> => {
+    const clone = document.documentElement.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll(
+      ".edit-banner, .photo-edit-btn, .delete-product-btn, .item-del, .add-item-btn, .add-product-btn, .field-del, .add-field-btn, .tag-color-select, .modal-overlay, .icon-btn, .load-del, .load-add, .pay-del, .pay-add, .wa-float"
+    ).forEach((el) => el.remove());
+    clone.querySelectorAll('[contenteditable="true"]').forEach((el) => el.removeAttribute("contenteditable"));
+    clone.querySelectorAll("input.phone-input").forEach((el) => {
+      const span = document.createElement("span");
+      span.textContent = (el as HTMLInputElement).value;
+      el.replaceWith(span);
+    });
+    await inlineAllImages(clone);
+    const styles = Array.from(document.styleSheets)
+      .map((sheet) => {
+        try { return Array.from(sheet.cssRules).map((r) => r.cssText).join("\n"); }
+        catch { return ""; }
+      })
+      .join("\n");
+    const head = clone.querySelector("head");
+    if (head) {
+      head.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => el.remove());
+      const styleEl = document.createElement("style");
+      styleEl.textContent = styles;
+      head.appendChild(styleEl);
+      const fontLink = document.createElement("link");
+      fontLink.rel = "stylesheet";
+      fontLink.href = "https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap";
+      head.appendChild(fontLink);
+    }
+    return "<!DOCTYPE html>\n" + clone.outerHTML;
+  };
+
+  const downloadHtml = async () => {
+    try {
+      const html = await buildStandaloneDocument();
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -327,6 +345,46 @@ function OrcamentoPage() {
       alert("Não foi possível gerar o HTML. Tente novamente.");
     }
   };
+
+  const downloadPdf = async () => {
+    try {
+      const html = await buildStandaloneDocument();
+      // Render in a hidden iframe so the PDF uses the standalone doc (with inlined imgs)
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.left = "-10000px";
+      iframe.style.top = "0";
+      iframe.style.width = "1100px";
+      iframe.style.height = "1600px";
+      document.body.appendChild(iframe);
+      const doc = iframe.contentDocument!;
+      doc.open(); doc.write(html); doc.close();
+      // Wait for images
+      await new Promise((r) => setTimeout(r, 600));
+      const target = doc.body;
+      const mod = await import("html2pdf.js");
+      const html2pdf = (mod as { default: (...args: unknown[]) => unknown }).default;
+      const stamp = new Date().toISOString().slice(0, 10);
+      await (html2pdf as (el: unknown) => {
+        set: (opts: unknown) => { from: (el: unknown) => { save: () => Promise<void> } };
+      })(target)
+        .set({
+          margin: [10, 10, 10, 10],
+          filename: `orcamento-playrio-${stamp}.pdf`,
+          image: { type: "jpeg", quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: null, windowWidth: 1100 },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          pagebreak: { mode: ["css", "legacy"] },
+        })
+        .from(target)
+        .save();
+      iframe.remove();
+    } catch (err) {
+      console.error(err);
+      alert("Não foi possível gerar o PDF. Tente novamente.");
+    }
+  };
+
 
   const wa = waLink(phone);
 
@@ -358,6 +416,13 @@ function OrcamentoPage() {
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
             </button>
+            <button className="icon-btn" onClick={downloadPdf} aria-label="Baixar PDF" title="Baixar orçamento em PDF">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <text x="7.5" y="18" fontSize="6" fontWeight="700" stroke="none" fill="currentColor">PDF</text>
+              </svg>
+            </button>
             <button
               className="icon-btn"
               onClick={() => (editMode ? exitEdit() : setShowLogin(true))}
@@ -387,6 +452,7 @@ function OrcamentoPage() {
           <span>✎ Modo edição ativo — clique em qualquer texto ou foto para alterar</span>
           <button onClick={addProduct}>+ Novo playground</button>
           <button onClick={downloadHtml}>⬇ Baixar HTML</button>
+          <button onClick={downloadPdf}>⬇ Baixar PDF</button>
           <button onClick={resetAll}>Restaurar padrão</button>
           <button onClick={exitEdit}>Sair</button>
         </div>
@@ -402,7 +468,7 @@ function OrcamentoPage() {
               <em>alegrias</em> desde 1985
             </h1>
             <p className="hero-sub">
-              Mais de 40 anos de tecnologia alemã em fabricação de playgrounds. Estruturas em aço com pintura eletrostática,
+              Mais de 40 anos fabricando brinquedos com tecnologia alemã. Estruturas em aço com pintura eletrostática,
               certificadas pela ABNT, prontas para transformar seu espaço em um mundo de diversão.
             </p>
             <div className="hero-badges">
@@ -416,7 +482,7 @@ function OrcamentoPage() {
               </span>
               <span className="badge" style={{ "--badge-color": "var(--green)" } as CSSProperties}>
                 <span className="dot" style={{ background: "var(--green)" }} />
-                Garantia de 1 ano
+                Entrega em 20 dias úteis
               </span>
             </div>
 
@@ -446,8 +512,8 @@ function OrcamentoPage() {
       <section className="trust">
         <div className="trust-inner">
           <div className="trust-item"><div className="num">40+</div><div className="lbl">Anos fabricando playgrounds (desde 1985)</div></div>
-          <div className="trust-item"><div className="num">30–40</div><div className="lbl">Dias para entrega após confirmação</div></div>
-          <div className="trust-item"><div className="num">01 ano</div><div className="lbl">De garantia de fabricação</div></div>
+          <div className="trust-item"><div className="num">20 dias</div><div className="lbl">Úteis para entrega após confirmação</div></div>
+          <div className="trust-item"><div className="num">700km</div><div className="lbl">Frete e instalação grátis a partir de SJRP</div></div>
           <div className="trust-item"><div className="num">ABNT</div><div className="lbl">Conformidade com NBR 16071-2012</div></div>
         </div>
       </section>
@@ -462,15 +528,11 @@ function OrcamentoPage() {
               <div className="quote-cards">
                 <div className="quote-card" style={{ background: "var(--violet)" }}>
                   <div className="k">Prazo de entrega</div>
-                  <div className="v">30 a 40 dias</div>
-                </div>
-                <div className="quote-card">
-                  <div className="k">Garantia</div>
-                  <div className="v">01 ano de fabricação</div>
+                  <div className="v">20 dias úteis</div>
                 </div>
                 <div className="quote-card" style={{ background: "#1F2A5C" }}>
                   <div className="k">Frete e instalação</div>
-                  <div className="v">Inclusos no valor</div>
+                  <div className="v">Grátis até 700km da fábrica (SJRP)</div>
                 </div>
               </div>
             </div>
@@ -762,7 +824,7 @@ function OrcamentoPage() {
         </div>
         <div className="foot-line">
           <span>Play Rio Brinquedos — Fabricando alegrias desde 1985.</span>
-          <span>Mais de 40 anos · Tecnologia alemã · Garantia de 01 ano.</span>
+          <span>Mais de 40 anos · Tecnologia alemã · Entrega em 20 dias úteis.</span>
         </div>
       </section>
 
@@ -1070,70 +1132,103 @@ function EditableSpan({
    ================================================================ */
 function MaterialsCarousel() {
   const ref = useRef<HTMLDivElement>(null);
-  const state = useRef({ isDown: false, startX: 0, scrollLeft: 0, paused: false });
+  const state = useRef({ isDown: false, startX: 0, startScroll: 0, paused: false, moved: false });
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    // Auto-scroll loop
+    const wrap = () => {
+      const half = el.scrollWidth / 2;
+      if (half <= 0) return;
+      if (el.scrollLeft >= half) el.scrollLeft -= half;
+      else if (el.scrollLeft < 0) el.scrollLeft += half;
+    };
+
     let last = performance.now();
-    const SPEED = 32; // px per second
+    const SPEED = 30;
     const tick = (now: number) => {
-      const dt = (now - last) / 1000;
+      const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
       if (!state.current.isDown && !state.current.paused) {
         el.scrollLeft += SPEED * dt;
-        const half = el.scrollWidth / 2;
-        if (el.scrollLeft >= half) el.scrollLeft -= half;
+        wrap();
       }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
 
-    const onEnter = () => { state.current.paused = true; };
-    const onExit = () => { state.current.paused = false; };
-    const onDown = (e: MouseEvent) => {
+    const pause = () => { state.current.paused = true; };
+    const resume = () => { state.current.paused = false; };
+
+    const start = (clientX: number) => {
       state.current.isDown = true;
-      state.current.startX = e.pageX - el.offsetLeft;
-      state.current.scrollLeft = el.scrollLeft;
+      state.current.moved = false;
+      state.current.startX = clientX;
+      state.current.startScroll = el.scrollLeft;
       el.classList.add("dragging");
     };
-    const onLeave = () => { state.current.isDown = false; el.classList.remove("dragging"); state.current.paused = false; };
-    const onUp = () => { state.current.isDown = false; el.classList.remove("dragging"); };
-    const onMove = (e: MouseEvent) => {
+    const move = (clientX: number) => {
+      if (!state.current.isDown) return;
+      state.current.moved = true;
+      el.scrollLeft = state.current.startScroll - (clientX - state.current.startX);
+      wrap();
+    };
+    const end = () => {
+      state.current.isDown = false;
+      el.classList.remove("dragging");
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      pause();
+      start(e.clientX);
+      try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    };
+    const onPointerMove = (e: PointerEvent) => {
       if (!state.current.isDown) return;
       e.preventDefault();
-      const x = e.pageX - el.offsetLeft;
-      const walk = (x - state.current.startX) * 1.4;
-      el.scrollLeft = state.current.scrollLeft - walk;
+      move(e.clientX);
     };
-    el.addEventListener("mouseenter", onEnter);
-    el.addEventListener("mouseleave", onLeave);
-    el.addEventListener("mousedown", onDown);
-    el.addEventListener("mouseup", onUp);
-    el.addEventListener("mousemove", onMove);
-    el.addEventListener("touchstart", onEnter, { passive: true });
-    el.addEventListener("touchend", onExit);
+    const onPointerUp = (e: PointerEvent) => {
+      end();
+      try { el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    };
+    const onPointerLeave = () => { end(); resume(); };
+    const onPointerEnter = () => { pause(); };
+    const onWheel = () => { pause(); };
+
+    el.addEventListener("pointerdown", onPointerDown);
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", onPointerUp);
+    el.addEventListener("pointercancel", onPointerUp);
+    el.addEventListener("pointerleave", onPointerLeave);
+    el.addEventListener("pointerenter", onPointerEnter);
+    el.addEventListener("wheel", onWheel, { passive: true });
+
+    // Fallback: release drag if user releases outside
+    const onWindowUp = () => end();
+    window.addEventListener("pointerup", onWindowUp);
+    window.addEventListener("blur", onWindowUp);
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      el.removeEventListener("mouseenter", onEnter);
-      el.removeEventListener("mouseleave", onLeave);
-      el.removeEventListener("mousedown", onDown);
-      el.removeEventListener("mouseup", onUp);
-      el.removeEventListener("mousemove", onMove);
-      el.removeEventListener("touchstart", onEnter);
-      el.removeEventListener("touchend", onExit);
+      el.removeEventListener("pointerdown", onPointerDown);
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", onPointerUp);
+      el.removeEventListener("pointercancel", onPointerUp);
+      el.removeEventListener("pointerleave", onPointerLeave);
+      el.removeEventListener("pointerenter", onPointerEnter);
+      el.removeEventListener("wheel", onWheel);
+      window.removeEventListener("pointerup", onWindowUp);
+      window.removeEventListener("blur", onWindowUp);
     };
   }, []);
 
-  // duplicate items to loop seamlessly
   const items = [...MATERIALS, ...MATERIALS];
 
   return (
-    <div className="materials-track" ref={ref}>
+    <div className="materials-track" ref={ref} style={{ touchAction: "pan-y" }}>
       {items.map((m, i) => (
         <div
           key={m.title + "-" + i}
