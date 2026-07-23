@@ -1132,70 +1132,103 @@ function EditableSpan({
    ================================================================ */
 function MaterialsCarousel() {
   const ref = useRef<HTMLDivElement>(null);
-  const state = useRef({ isDown: false, startX: 0, scrollLeft: 0, paused: false });
+  const state = useRef({ isDown: false, startX: 0, startScroll: 0, paused: false, moved: false });
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    // Auto-scroll loop
+    const wrap = () => {
+      const half = el.scrollWidth / 2;
+      if (half <= 0) return;
+      if (el.scrollLeft >= half) el.scrollLeft -= half;
+      else if (el.scrollLeft < 0) el.scrollLeft += half;
+    };
+
     let last = performance.now();
-    const SPEED = 32; // px per second
+    const SPEED = 30;
     const tick = (now: number) => {
-      const dt = (now - last) / 1000;
+      const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
       if (!state.current.isDown && !state.current.paused) {
         el.scrollLeft += SPEED * dt;
-        const half = el.scrollWidth / 2;
-        if (el.scrollLeft >= half) el.scrollLeft -= half;
+        wrap();
       }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
 
-    const onEnter = () => { state.current.paused = true; };
-    const onExit = () => { state.current.paused = false; };
-    const onDown = (e: MouseEvent) => {
+    const pause = () => { state.current.paused = true; };
+    const resume = () => { state.current.paused = false; };
+
+    const start = (clientX: number) => {
       state.current.isDown = true;
-      state.current.startX = e.pageX - el.offsetLeft;
-      state.current.scrollLeft = el.scrollLeft;
+      state.current.moved = false;
+      state.current.startX = clientX;
+      state.current.startScroll = el.scrollLeft;
       el.classList.add("dragging");
     };
-    const onLeave = () => { state.current.isDown = false; el.classList.remove("dragging"); state.current.paused = false; };
-    const onUp = () => { state.current.isDown = false; el.classList.remove("dragging"); };
-    const onMove = (e: MouseEvent) => {
+    const move = (clientX: number) => {
+      if (!state.current.isDown) return;
+      state.current.moved = true;
+      el.scrollLeft = state.current.startScroll - (clientX - state.current.startX);
+      wrap();
+    };
+    const end = () => {
+      state.current.isDown = false;
+      el.classList.remove("dragging");
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      pause();
+      start(e.clientX);
+      try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    };
+    const onPointerMove = (e: PointerEvent) => {
       if (!state.current.isDown) return;
       e.preventDefault();
-      const x = e.pageX - el.offsetLeft;
-      const walk = (x - state.current.startX) * 1.4;
-      el.scrollLeft = state.current.scrollLeft - walk;
+      move(e.clientX);
     };
-    el.addEventListener("mouseenter", onEnter);
-    el.addEventListener("mouseleave", onLeave);
-    el.addEventListener("mousedown", onDown);
-    el.addEventListener("mouseup", onUp);
-    el.addEventListener("mousemove", onMove);
-    el.addEventListener("touchstart", onEnter, { passive: true });
-    el.addEventListener("touchend", onExit);
+    const onPointerUp = (e: PointerEvent) => {
+      end();
+      try { el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    };
+    const onPointerLeave = () => { end(); resume(); };
+    const onPointerEnter = () => { pause(); };
+    const onWheel = () => { pause(); };
+
+    el.addEventListener("pointerdown", onPointerDown);
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", onPointerUp);
+    el.addEventListener("pointercancel", onPointerUp);
+    el.addEventListener("pointerleave", onPointerLeave);
+    el.addEventListener("pointerenter", onPointerEnter);
+    el.addEventListener("wheel", onWheel, { passive: true });
+
+    // Fallback: release drag if user releases outside
+    const onWindowUp = () => end();
+    window.addEventListener("pointerup", onWindowUp);
+    window.addEventListener("blur", onWindowUp);
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      el.removeEventListener("mouseenter", onEnter);
-      el.removeEventListener("mouseleave", onLeave);
-      el.removeEventListener("mousedown", onDown);
-      el.removeEventListener("mouseup", onUp);
-      el.removeEventListener("mousemove", onMove);
-      el.removeEventListener("touchstart", onEnter);
-      el.removeEventListener("touchend", onExit);
+      el.removeEventListener("pointerdown", onPointerDown);
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", onPointerUp);
+      el.removeEventListener("pointercancel", onPointerUp);
+      el.removeEventListener("pointerleave", onPointerLeave);
+      el.removeEventListener("pointerenter", onPointerEnter);
+      el.removeEventListener("wheel", onWheel);
+      window.removeEventListener("pointerup", onWindowUp);
+      window.removeEventListener("blur", onWindowUp);
     };
   }, []);
 
-  // duplicate items to loop seamlessly
   const items = [...MATERIALS, ...MATERIALS];
 
   return (
-    <div className="materials-track" ref={ref}>
+    <div className="materials-track" ref={ref} style={{ touchAction: "pan-y" }}>
       {items.map((m, i) => (
         <div
           key={m.title + "-" + i}
