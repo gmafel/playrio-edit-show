@@ -460,15 +460,11 @@ function OrcamentoPage() {
               <div className="quote-cards">
                 <div className="quote-card" style={{ background: "var(--violet)" }}>
                   <div className="k">Prazo de entrega</div>
-                  <div className="v">30 a 40 dias</div>
-                </div>
-                <div className="quote-card">
-                  <div className="k">Garantia</div>
-                  <div className="v">01 ano de fabricação</div>
+                  <div className="v">20 dias úteis</div>
                 </div>
                 <div className="quote-card" style={{ background: "#1F2A5C" }}>
                   <div className="k">Frete e instalação</div>
-                  <div className="v">Inclusos no valor</div>
+                  <div className="v">Grátis até 700km da fábrica (SJRP)</div>
                 </div>
               </div>
             </div>
