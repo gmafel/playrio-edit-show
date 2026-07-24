@@ -1,5 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
 
 import heroAsset from "@/assets/hero.jpg.asset.json";
 import quoteAsset from "@/assets/quote.jpg.asset.json";
@@ -53,6 +62,7 @@ type Product = {
 type Field = { id: string; label: string; value: string };
 type LoadItem = { id: string; n: string; l: string; d: string };
 type PayStep = { id: string; num: string; title: string; desc: string };
+type Material = { id: string; icon: string; color: string; title: string; text: string };
 
 const DEFAULT_PRODUCTS: Product[] = [
   {
@@ -143,6 +153,14 @@ const DEFAULT_PAY_STEPS: PayStep[] = [
 const DEFAULT_DOCS = ["Nome completo", "Endereço completo", "CPF/CNPJ", "Fotos/vídeos do local de instalação"];
 const DEFAULT_FLOORS = ["Grama", "Terra", "Areia", "Concreto", "Piso"];
 
+const DEFAULT_MATERIALS: Material[] = [
+  { id: "m-aco", icon: "Aç", color: "var(--orange)", title: "Aço estrutural", text: "Perfis de aço com pintura epóxi que repele calor e mantém as cores vivas por muito mais tempo." },
+  { id: "m-fibra", icon: "Fi", color: "var(--sky)", title: "Fibra de vidro", text: "Escorregadores, telhadinhos e rapel em fibra de alta resistência, próprios para uso intensivo ao ar livre." },
+  { id: "m-plas", icon: "Pl", color: "var(--violet)", title: "Plástico rotomoldado", text: "Peças coloridas, leves e resistentes ao impacto — sem farpas, sem quinas, seguras para as crianças." },
+  { id: "m-mad", icon: "Ma", color: "var(--yellow)", title: "Madeira plástica", text: "Alternativa ecológica que substitui a madeira tradicional: não racha, não empena e não precisa de manutenção." },
+  { id: "m-al", icon: "Al", color: "#B14AED", title: "Alumínio anticorrosivo", text: "Componentes de acabamento em alumínio tratado — leve, durável e imune à ferrugem em áreas úmidas." },
+];
+
 const TAG_COLORS = [
   { label: "Verde", value: "var(--green)" },
   { label: "Azul", value: "var(--sky)" },
@@ -160,14 +178,45 @@ const PAY_KEY = "playrio_pay_v1";
 const DOCS_KEY = "playrio_docs_v1";
 const FLOORS_KEY = "playrio_floors_v1";
 const IMAGES_KEY = "playrio_images_v1";
+const MATERIALS_KEY = "playrio_materials_v1";
+const TEXTS_KEY = "playrio_texts_v1";
 
-const MATERIALS = [
-  { icon: "Aç", color: "var(--orange)", title: "Aço estrutural", text: "Perfis de aço com pintura eletrostática epóxi que repele calor e mantém as cores vivas por muito mais tempo." },
-  { icon: "Fi", color: "var(--sky)", title: "Fibra de vidro", text: "Escorregadores, telhadinhos e rapel em fibra de alta resistência, próprios para uso intensivo ao ar livre." },
-  { icon: "Pl", color: "var(--violet)", title: "Plástico rotomoldado", text: "Peças coloridas, leves e resistentes ao impacto — sem farpas, sem quinas, seguras para as crianças." },
-  { icon: "Ma", color: "var(--yellow)", title: "Madeira plástica", text: "Alternativa ecológica que substitui a madeira tradicional: não racha, não empena e não precisa de manutenção." },
-  { icon: "Al", color: "#B14AED", title: "Alumínio anticorrosivo", text: "Componentes de acabamento em alumínio tratado — leve, durável e imune à ferrugem em áreas úmidas." },
-];
+/* ================================================================
+   TEXT CONTEXT — makes every hardcoded text editable
+   ================================================================ */
+type TextCtxType = {
+  get: (key: string, def: string) => string;
+  set: (key: string, v: string) => void;
+  editMode: boolean;
+};
+const TextCtx = createContext<TextCtxType>({
+  get: (_k, d) => d,
+  set: () => {},
+  editMode: false,
+});
+
+function T({
+  k, children, as = "span", className, style,
+}: {
+  k: string;
+  children: string;
+  as?: "span" | "h1" | "h2" | "h3" | "h4" | "p" | "em" | "div";
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const { get, set, editMode } = useContext(TextCtx);
+  const value = get(k, children);
+  return (
+    <EditableSpan
+      as={as}
+      className={className}
+      style={style}
+      value={value}
+      editMode={editMode}
+      onCommit={(v) => set(k, v || children)}
+    />
+  );
+}
 
 /* ================================================================
    PAGE
@@ -181,7 +230,9 @@ function OrcamentoPage() {
   const [paySteps, setPaySteps] = useState<PayStep[]>(DEFAULT_PAY_STEPS);
   const [docs, setDocs] = useState<string[]>(DEFAULT_DOCS);
   const [floors, setFloors] = useState<string[]>(DEFAULT_FLOORS);
+  const [materials, setMaterials] = useState<Material[]>(DEFAULT_MATERIALS);
   const [images, setImages] = useState<Record<string, string>>({});
+  const [texts, setTexts] = useState<Record<string, string>>({});
   const [editMode, setEditMode] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
@@ -190,10 +241,10 @@ function OrcamentoPage() {
       const t = (localStorage.getItem(THEME_KEY) as "light" | "dark" | null) ?? "light";
       setTheme(t);
       document.documentElement.setAttribute("data-theme", t);
-      const load = <T,>(k: string, setter: (v: T) => void) => {
+      const load = <TV,>(k: string, setter: (v: TV) => void) => {
         const raw = localStorage.getItem(k);
         if (raw) {
-          try { setter(JSON.parse(raw) as T); } catch { /* ignore */ }
+          try { setter(JSON.parse(raw) as TV); } catch { /* ignore */ }
         }
       };
       load<Product[]>(PRODUCTS_KEY, (v) => Array.isArray(v) && v.length && setProducts(v));
@@ -202,13 +253,15 @@ function OrcamentoPage() {
       load<PayStep[]>(PAY_KEY, (v) => Array.isArray(v) && v.length && setPaySteps(v));
       load<string[]>(DOCS_KEY, (v) => Array.isArray(v) && setDocs(v));
       load<string[]>(FLOORS_KEY, (v) => Array.isArray(v) && setFloors(v));
+      load<Material[]>(MATERIALS_KEY, (v) => Array.isArray(v) && v.length && setMaterials(v));
       load<Record<string, string>>(IMAGES_KEY, (v) => v && setImages(v));
+      load<Record<string, string>>(TEXTS_KEY, (v) => v && setTexts(v));
       const p = localStorage.getItem(PHONE_KEY);
       if (p) setPhone(p);
     } catch { /* ignore */ }
   }, []);
 
-  const persist = <T,>(key: string, value: T, setter: (v: T) => void) => {
+  const persist = <TV,>(key: string, value: TV, setter: (v: TV) => void) => {
     setter(value);
     try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* quota */ }
   };
@@ -219,12 +272,20 @@ function OrcamentoPage() {
   const persistPay = (v: PayStep[]) => persist(PAY_KEY, v, setPaySteps);
   const persistDocs = (v: string[]) => persist(DOCS_KEY, v, setDocs);
   const persistFloors = (v: string[]) => persist(FLOORS_KEY, v, setFloors);
+  const persistMaterials = (v: Material[]) => persist(MATERIALS_KEY, v, setMaterials);
   const persistImages = (v: Record<string, string>) => persist(IMAGES_KEY, v, setImages);
+  const persistTexts = (v: Record<string, string>) => persist(TEXTS_KEY, v, setTexts);
 
   const setImage = (key: string, dataUrl: string) => {
     persistImages({ ...images, [key]: dataUrl });
   };
   const getImage = (key: string, fallback: string) => images[key] || fallback;
+
+  const textCtx: TextCtxType = {
+    get: (k, def) => (texts[k] !== undefined ? texts[k] : def),
+    set: (k, v) => persistTexts({ ...texts, [k]: v }),
+    editMode,
+  };
 
   const toggleTheme = () => {
     const next = theme === "light" ? "dark" : "light";
@@ -270,7 +331,46 @@ function OrcamentoPage() {
     persistPay(DEFAULT_PAY_STEPS);
     persistDocs(DEFAULT_DOCS);
     persistFloors(DEFAULT_FLOORS);
+    persistMaterials(DEFAULT_MATERIALS);
     persistImages({});
+    persistTexts({});
+  };
+
+  /* -------- Export helpers -------- */
+
+  const STRIP_SELECTORS =
+    ".edit-banner, .photo-edit-btn, .delete-product-btn, .item-del, .add-item-btn, .add-product-btn, .field-del, .add-field-btn, .tag-color-select, .modal-overlay, .icon-btn, .load-del, .load-add, .pay-del, .pay-add, .wa-float, .mat-del, .mat-add, .nav-right button";
+
+  const collectAllStyles = async (): Promise<string> => {
+    const parts: string[] = [];
+    for (const sheet of Array.from(document.styleSheets)) {
+      try {
+        const rules = Array.from(sheet.cssRules);
+        parts.push(rules.map((r) => r.cssText).join("\n"));
+      } catch {
+        // Cross-origin: fetch raw
+        const href = (sheet as CSSStyleSheet).href;
+        if (href) {
+          try {
+            const res = await fetch(href);
+            if (res.ok) parts.push(await res.text());
+          } catch { /* ignore */ }
+        }
+      }
+    }
+    return parts.join("\n\n");
+  };
+
+  const cleanClone = (root: HTMLElement): HTMLElement => {
+    const clone = root.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll(STRIP_SELECTORS).forEach((el) => el.remove());
+    clone.querySelectorAll('[contenteditable]').forEach((el) => el.removeAttribute("contenteditable"));
+    clone.querySelectorAll("input.phone-input").forEach((el) => {
+      const span = document.createElement("span");
+      span.textContent = (el as HTMLInputElement).value;
+      el.replaceWith(span);
+    });
+    return clone;
   };
 
   const inlineAllImages = async (root: HTMLElement) => {
@@ -289,42 +389,26 @@ function OrcamentoPage() {
           fr.readAsDataURL(blob);
         });
         img.setAttribute("src", dataUrl);
-      } catch {
-        /* ignore — leave the original src */
-      }
+      } catch { /* ignore */ }
     }));
   };
 
   const buildStandaloneDocument = async (): Promise<string> => {
-    const clone = document.documentElement.cloneNode(true) as HTMLElement;
-    clone.querySelectorAll(
-      ".edit-banner, .photo-edit-btn, .delete-product-btn, .item-del, .add-item-btn, .add-product-btn, .field-del, .add-field-btn, .tag-color-select, .modal-overlay, .icon-btn, .load-del, .load-add, .pay-del, .pay-add, .wa-float"
-    ).forEach((el) => el.remove());
-    clone.querySelectorAll('[contenteditable="true"]').forEach((el) => el.removeAttribute("contenteditable"));
-    clone.querySelectorAll("input.phone-input").forEach((el) => {
-      const span = document.createElement("span");
-      span.textContent = (el as HTMLInputElement).value;
-      el.replaceWith(span);
-    });
-    await inlineAllImages(clone);
-    const styles = Array.from(document.styleSheets)
-      .map((sheet) => {
-        try { return Array.from(sheet.cssRules).map((r) => r.cssText).join("\n"); }
-        catch { return ""; }
-      })
-      .join("\n");
-    const head = clone.querySelector("head");
-    if (head) {
-      head.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => el.remove());
-      const styleEl = document.createElement("style");
-      styleEl.textContent = styles;
-      head.appendChild(styleEl);
-      const fontLink = document.createElement("link");
-      fontLink.rel = "stylesheet";
-      fontLink.href = "https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap";
-      head.appendChild(fontLink);
-    }
-    return "<!DOCTYPE html>\n" + clone.outerHTML;
+    const bodyClone = cleanClone(document.body);
+    await inlineAllImages(bodyClone);
+    const css = await collectAllStyles();
+    const theme = document.documentElement.getAttribute("data-theme") || "light";
+    return `<!DOCTYPE html>
+<html lang="pt-BR" data-theme="${theme}">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Orçamento Play Rio Playgrounds</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" />
+<style>${css}</style>
+</head>
+${bodyClone.outerHTML}
+</html>`;
   };
 
   const downloadHtml = async () => {
@@ -347,49 +431,58 @@ function OrcamentoPage() {
   };
 
   const downloadPdf = async () => {
+    // Render PDF directly from the LIVE document (fully styled) instead of
+    // an iframe, then strip editor controls in a clone that we mount off-screen.
+    const holder = document.createElement("div");
+    holder.style.cssText =
+      "position:fixed;left:0;top:0;width:1100px;background:var(--bg,#fff);z-index:-1;opacity:0.01;pointer-events:none;";
+    const clone = cleanClone(document.body);
+    // move each child of the cloned body into holder
+    Array.from(clone.childNodes).forEach((n) => holder.appendChild(n));
+    document.body.appendChild(holder);
     try {
-      const html = await buildStandaloneDocument();
-      // Render in a hidden iframe so the PDF uses the standalone doc (with inlined imgs)
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.left = "-10000px";
-      iframe.style.top = "0";
-      iframe.style.width = "1100px";
-      iframe.style.height = "1600px";
-      document.body.appendChild(iframe);
-      const doc = iframe.contentDocument!;
-      doc.open(); doc.write(html); doc.close();
-      // Wait for images
-      await new Promise((r) => setTimeout(r, 600));
-      const target = doc.body;
+      await inlineAllImages(holder);
+      // Wait for layout + font settle
+      await new Promise((r) => setTimeout(r, 400));
       const mod = await import("html2pdf.js");
-      const html2pdf = (mod as { default: (...args: unknown[]) => unknown }).default;
+      const html2pdf = (mod as unknown as { default: unknown }).default as (
+        el?: HTMLElement,
+      ) => {
+        set: (opts: unknown) => {
+          from: (el: HTMLElement) => { save: () => Promise<void> };
+        };
+      };
       const stamp = new Date().toISOString().slice(0, 10);
-      await (html2pdf as (el: unknown) => {
-        set: (opts: unknown) => { from: (el: unknown) => { save: () => Promise<void> } };
-      })(target)
+      await html2pdf()
         .set({
-          margin: [10, 10, 10, 10],
+          margin: [8, 8, 8, 8],
           filename: `orcamento-playrio-${stamp}.pdf`,
           image: { type: "jpeg", quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, backgroundColor: null, windowWidth: 1100 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: "#ffffff",
+            windowWidth: 1100,
+            scrollY: 0,
+          },
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-          pagebreak: { mode: ["css", "legacy"] },
+          pagebreak: { mode: ["css", "legacy", "avoid-all"] },
         })
-        .from(target)
+        .from(holder)
         .save();
-      iframe.remove();
     } catch (err) {
       console.error(err);
       alert("Não foi possível gerar o PDF. Tente novamente.");
+    } finally {
+      holder.remove();
     }
   };
-
 
   const wa = waLink(phone);
 
   return (
-    <>
+    <TextCtx.Provider value={textCtx}>
       {/* NAV */}
       <div className="nav">
         <div className="nav-inner">
@@ -462,31 +555,29 @@ function OrcamentoPage() {
       <section className="hero">
         <div className="hero-inner">
           <div>
-            <span className="eyebrow">Orçamento de Playground</span>
+            <T k="hero.eyebrow" as="span" className="eyebrow">Orçamento de Playground</T>
             <h1>
-              Fabricando<br />
-              <em>alegrias</em> desde 1985
+              <T k="hero.h1a">Fabricando</T><br />
+              <T k="hero.h1b" as="em">alegrias</T> <T k="hero.h1c">desde 1985</T>
             </h1>
-            <p className="hero-sub">
-              Mais de 40 anos fabricando brinquedos com tecnologia alemã. Estruturas em aço com pintura eletrostática,
-              certificadas pela ABNT, prontas para transformar seu espaço em um mundo de diversão.
-            </p>
+            <T k="hero.sub" as="p" className="hero-sub">
+              Mais de 40 anos fabricando brinquedos com tecnologia alemã. Estruturas em aço certificadas pela ABNT, prontas para transformar seu espaço em um mundo de diversão.
+            </T>
             <div className="hero-badges">
               <span className="badge" style={{ "--badge-color": "var(--orange)" } as CSSProperties}>
                 <span className="dot" style={{ background: "var(--orange)" }} />
-                Tecnologia alemã
+                <T k="hero.badge1">Tecnologia alemã</T>
               </span>
               <span className="badge" style={{ "--badge-color": "var(--yellow)" } as CSSProperties}>
                 <span className="dot" style={{ background: "var(--yellow)" }} />
-                Desde 1985
+                <T k="hero.badge2">Desde 1985</T>
               </span>
               <span className="badge" style={{ "--badge-color": "var(--green)" } as CSSProperties}>
                 <span className="dot" style={{ background: "var(--green)" }} />
-                Entrega em 20 dias úteis
+                <T k="hero.badge3">Entrega em 20 dias úteis</T>
               </span>
             </div>
 
-            {/* QUOTE INFO — editável, primeira parte do site */}
             <QuoteInfoCard
               info={quoteInfo}
               editMode={editMode}
@@ -511,10 +602,22 @@ function OrcamentoPage() {
       {/* TRUST */}
       <section className="trust">
         <div className="trust-inner">
-          <div className="trust-item"><div className="num">40+</div><div className="lbl">Anos fabricando playgrounds (desde 1985)</div></div>
-          <div className="trust-item"><div className="num">20 dias</div><div className="lbl">Úteis para entrega após confirmação</div></div>
-          <div className="trust-item"><div className="num">700km</div><div className="lbl">Frete e instalação grátis a partir de SJRP</div></div>
-          <div className="trust-item"><div className="num">ABNT</div><div className="lbl">Conformidade com NBR 16071-2012</div></div>
+          <div className="trust-item">
+            <T k="trust.n1" as="div" className="num">40+</T>
+            <T k="trust.l1" as="div" className="lbl">Anos fabricando playgrounds (desde 1985)</T>
+          </div>
+          <div className="trust-item">
+            <T k="trust.n2" as="div" className="num">20 dias</T>
+            <T k="trust.l2" as="div" className="lbl">Úteis para entrega após confirmação</T>
+          </div>
+          <div className="trust-item">
+            <T k="trust.n3" as="div" className="num">700km</T>
+            <T k="trust.l3" as="div" className="lbl">Frete e instalação grátis a partir de SJRP</T>
+          </div>
+          <div className="trust-item">
+            <T k="trust.n4" as="div" className="num">ABNT</T>
+            <T k="trust.l4" as="div" className="lbl">Conformidade com NBR 16071-2012</T>
+          </div>
         </div>
       </section>
 
@@ -523,16 +626,16 @@ function OrcamentoPage() {
         <div className="wrap">
           <div className="quote-grid">
             <div>
-              <span className="section-eyebrow">Condições do orçamento</span>
-              <h2 style={{ marginBottom: 28 }}>Tudo o que você precisa saber antes de fechar</h2>
+              <T k="quote.eyebrow" as="span" className="section-eyebrow">Condições do orçamento</T>
+              <T k="quote.h2" as="h2" style={{ marginBottom: 28 }}>Tudo o que você precisa saber antes de fechar</T>
               <div className="quote-cards">
                 <div className="quote-card" style={{ background: "var(--violet)" }}>
-                  <div className="k">Prazo de entrega</div>
-                  <div className="v">20 dias úteis</div>
+                  <T k="quote.card1.k" as="div" className="k">Prazo de entrega</T>
+                  <T k="quote.card1.v" as="div" className="v">20 dias úteis</T>
                 </div>
                 <div className="quote-card" style={{ background: "#1F2A5C" }}>
-                  <div className="k">Frete e instalação</div>
-                  <div className="v">Grátis até 700km da fábrica (SJRP)</div>
+                  <T k="quote.card2.k" as="div" className="k">Frete e instalação</T>
+                  <T k="quote.card2.v" as="div" className="v">Grátis até 700km da fábrica (SJRP)</T>
                 </div>
               </div>
             </div>
@@ -553,12 +656,12 @@ function OrcamentoPage() {
         <div className="wrap">
           <div className="section-head">
             <div>
-              <span className="section-eyebrow">Modelos disponíveis</span>
-              <h2>Escolha o playground ideal</h2>
+              <T k="prod.eyebrow" as="span" className="section-eyebrow">Modelos disponíveis</T>
+              <T k="prod.h2" as="h2">Escolha o playground ideal</T>
             </div>
-            <p className="section-note">
-              Estruturas robustas, com componentes intercambiáveis e preços com desconto exclusivo neste orçamento.
-            </p>
+            <T k="prod.note" as="p" className="section-note">
+              Estruturas robustas e preços com desconto exclusivo neste orçamento.
+            </T>
           </div>
 
           <div className="products">
@@ -588,28 +691,34 @@ function OrcamentoPage() {
         <div className="wrap">
           <div className="section-head">
             <div>
-              <span className="section-eyebrow">Qualidade e durabilidade</span>
-              <h2>Materiais e especificações</h2>
+              <T k="mat.eyebrow" as="span" className="section-eyebrow">Qualidade e durabilidade</T>
+              <T k="mat.h2" as="h2">Materiais e especificações</T>
             </div>
-            <p className="section-note">
+            <T k="mat.note" as="p" className="section-note">
               Combinamos materiais premium para garantir segurança, durabilidade e cores vivas por muito mais tempo.
-            </p>
+            </T>
           </div>
-          <MaterialsCarousel />
+          <MaterialsCarousel
+            materials={materials}
+            editMode={editMode}
+            onChange={persistMaterials}
+          />
           <p className="carousel-hint">
-            <span>← Arraste ou aguarde a animação →</span>
+            <T k="mat.hint">← Arraste ou aguarde a animação →</T>
           </p>
         </div>
       </section>
 
-      {/* LOAD CAPACITY — bonita e brilhosa */}
+      {/* LOAD */}
       <section className="load-section" id="capacidade">
         <div className="load-glow" aria-hidden="true" />
         <div className="wrap">
-          <span className="section-eyebrow" style={{ color: "var(--yellow)" }}>
+          <T k="load.eyebrow" as="span" className="section-eyebrow" style={{ color: "var(--yellow)" }}>
             Segurança em números
-          </span>
-          <h2 style={{ color: "white", fontSize: "clamp(1.8rem,3.4vw,2.5rem)" }}>Capacidade de carga</h2>
+          </T>
+          <T k="load.h2" as="h2" style={{ color: "white", fontSize: "clamp(1.8rem,3.4vw,2.5rem)" }}>
+            Capacidade de carga
+          </T>
           <div className="load-grid shiny">
             {loads.map((it, i) => (
               <div key={it.id} className="load-card" style={{ "--i": i } as CSSProperties}>
@@ -643,21 +752,21 @@ function OrcamentoPage() {
               </button>
             )}
           </div>
-          <p className="load-foot">
-            Público-alvo: faixa etária de 04 a 14 anos. Crianças abaixo de 04 anos devem utilizar sob supervisão de um adulto.
-          </p>
+          <T k="load.foot" as="p" className="load-foot">
+            Público-alvo: 0 a 4 anos com acompanhamento dos pais, de 04 a 12 anos com supervisão de um adulto.
+          </T>
         </div>
       </section>
 
-      {/* PAYMENT — sem imagem, interativo, brilhoso */}
+      {/* PAYMENT */}
       <section className="section pay-section" id="condicoes">
         <div className="wrap">
           <div className="pay-head">
-            <span className="section-eyebrow">Como funciona o pagamento</span>
-            <h2>Condições comerciais</h2>
-            <p className="section-note" style={{ maxWidth: "56ch" }}>
+            <T k="pay.eyebrow" as="span" className="section-eyebrow">Como funciona o pagamento</T>
+            <T k="pay.h2" as="h2">Condições comerciais</T>
+            <T k="pay.note" as="p" className="section-note" style={{ maxWidth: "56ch" }}>
               Processo transparente, em três etapas simples. Confirme o pedido com um sinal e escolha a melhor forma de finalizar.
-            </p>
+            </T>
           </div>
 
           <div className="pay-grid">
@@ -700,18 +809,19 @@ function OrcamentoPage() {
         </div>
       </section>
 
-      {/* REQS — brilhosos */}
+      {/* REQS */}
       <section className="section tight reqs-section" id="instalacao">
         <div className="wrap">
           <div className="section-head">
             <div>
-              <span className="section-eyebrow">Antes da instalação</span>
-              <h2>Requisitos de instalação</h2>
+              <T k="req.eyebrow" as="span" className="section-eyebrow">Antes da instalação</T>
+              <T k="req.h2" as="h2">Requisitos de instalação</T>
             </div>
           </div>
           <div className="req-grid">
             <EditableList
-              title="Documentação necessária"
+              titleKey="req.docs.title"
+              titleDefault="Documentação necessária"
               items={docs}
               onChange={persistDocs}
               editMode={editMode}
@@ -724,7 +834,8 @@ function OrcamentoPage() {
               }
             />
             <EditableList
-              title="Tipos de piso aceitos"
+              titleKey="req.floors.title"
+              titleDefault="Tipos de piso aceitos"
               items={floors}
               onChange={persistFloors}
               editMode={editMode}
@@ -756,14 +867,14 @@ function OrcamentoPage() {
             onPick={setImage}
           >
             <div className="tagline">
-              <span>Seguro,</span><br />
-              <span>Colorido,</span><br />
-              <span>Divertido</span>
+              <T k="tag.1">Seguro,</T><br />
+              <T k="tag.2">Colorido,</T><br />
+              <T k="tag.3">Divertido</T>
             </div>
           </EditableImage>
           <div className="contact-body">
             <img className="contact-logo" src={logoAsset.url} alt="Play Rio Playgrounds" />
-            <h2>Entre em contato</h2>
+            <T k="contact.h2" as="h2">Entre em contato</T>
             <div className="contact-list">
               <div className="contact-row">
                 <div className="contact-icon">
@@ -773,10 +884,10 @@ function OrcamentoPage() {
                   </svg>
                 </div>
                 <div>
-                  <div className="k">Endereço</div>
+                  <T k="contact.addr.k" as="div" className="k">Endereço</T>
                   <div className="v">
-                    Rua Flavio Bianchini, 8445 — Amoras 2<br />
-                    São José do Rio Preto-SP · CEP 15062-610
+                    <T k="contact.addr.line1">Rua Flavio Bianchini, 8445 — Amoras 2</T><br />
+                    <T k="contact.addr.line2">São José do Rio Preto-SP · CEP 15062-610</T>
                   </div>
                 </div>
               </div>
@@ -787,7 +898,7 @@ function OrcamentoPage() {
                   </svg>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div className="k">Telefone / WhatsApp</div>
+                  <T k="contact.tel.k" as="div" className="k">Telefone / WhatsApp</T>
                   <div className="v">
                     {editMode ? (
                       <input
@@ -811,20 +922,20 @@ function OrcamentoPage() {
                   </svg>
                 </div>
                 <div>
-                  <div className="k">Fale conosco</div>
-                  <div className="v">Atendimento de segunda a sexta, 8h às 18h</div>
+                  <T k="contact.hours.k" as="div" className="k">Fale conosco</T>
+                  <T k="contact.hours.v" as="div" className="v">Atendimento de segunda a sexta, 8h às 18h</T>
                 </div>
               </div>
             </div>
             <a className="contact-cta" href={wa} target="_blank" rel="noopener noreferrer">
               <WhatsAppIcon />
-              Falar com a Play Rio agora
+              <T k="contact.cta">Falar com a Play Rio agora</T>
             </a>
           </div>
         </div>
         <div className="foot-line">
-          <span>Play Rio Brinquedos — Fabricando alegrias desde 1985.</span>
-          <span>Mais de 40 anos · Tecnologia alemã · Entrega em 20 dias úteis.</span>
+          <T k="foot.1"><span>Play Rio Brinquedos — Fabricando alegrias desde 1985.</span></T>
+          <T k="foot.2"><span>Mais de 40 anos · Tecnologia alemã · Entrega em 20 dias úteis.</span></T>
         </div>
       </section>
 
@@ -834,12 +945,12 @@ function OrcamentoPage() {
       </a>
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} onSubmit={handleLogin} />}
-    </>
+    </TextCtx.Provider>
   );
 }
 
 /* ================================================================
-   QUOTE INFO (Cliente / Vendedora / CNPJ, etc)
+   QUOTE INFO CARD
    ================================================================ */
 function QuoteInfoCard({
   info, editMode, onChange,
@@ -854,7 +965,6 @@ function QuoteInfoCard({
   const addField = () =>
     onChange([...info, { id: "f" + Date.now(), label: "Novo campo", value: "" }]);
 
-  // Hide card entirely if nothing filled and not editing
   const hasContent = info.some((f) => f.value.trim());
   if (!editMode && !hasContent) return null;
 
@@ -893,24 +1003,25 @@ function QuoteInfoCard({
 }
 
 /* ================================================================
-   EDITABLE LIST (docs, floors)
+   EDITABLE LIST
    ================================================================ */
 function EditableList({
-  title, items, onChange, editMode, accent, icon,
+  titleKey, titleDefault, items, onChange, editMode, accent, icon,
 }: {
-  title: string;
+  titleKey: string;
+  titleDefault: string;
   items: string[];
   onChange: (v: string[]) => void;
   editMode: boolean;
   accent: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }) {
   return (
     <div className="req-card shiny" style={{ "--accent": accent } as CSSProperties}>
       <div className="req-shine" aria-hidden="true" />
       <div className="req-head">
         <div className="req-icon">{icon}</div>
-        <h4>{title}</h4>
+        <T k={titleKey} as="h4">{titleDefault}</T>
       </div>
       <ul>
         {items.map((it, idx) => (
@@ -947,7 +1058,7 @@ function EditableImage({
   alt: string;
   editMode: boolean;
   onPick: (key: string, dataUrl: string) => void;
-  children?: React.ReactNode;
+  children?: ReactNode;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const pick = (e: ChangeEvent<HTMLInputElement>) => {
@@ -1040,7 +1151,7 @@ function ProductCard({
 
   const body = (
     <div className="product-body">
-      <EditableSpan as="h3" className="" value={product.title} editMode={editMode} onCommit={(v) => onEdit(product.id, { title: v })} />
+      <EditableSpan as="h3" value={product.title} editMode={editMode} onCommit={(v) => onEdit(product.id, { title: v })} />
       <div className="price-row">
         <EditableSpan className="price-old mono" value={product.priceOld} editMode={editMode} onCommit={(v) => onEdit(product.id, { priceOld: v })} />
         <EditableSpan className="price-new" value={product.priceNew} editMode={editMode} onCommit={(v) => onEdit(product.id, { priceNew: v })} />
@@ -1093,7 +1204,7 @@ function EditableSpan({
   editMode: boolean;
   onCommit: (v: string) => void;
   className?: string;
-  as?: "span" | "h3";
+  as?: "span" | "h1" | "h2" | "h3" | "h4" | "p" | "em" | "div";
   style?: CSSProperties;
   placeholder?: string;
 }) {
@@ -1116,7 +1227,7 @@ function EditableSpan({
         if (v !== value) onCommit(v);
       }}
       onKeyDown={(e) => {
-        if (e.key === "Enter" && as !== "h3") {
+        if (e.key === "Enter" && as !== "h3" && as !== "p" && as !== "div") {
           e.preventDefault();
           (e.currentTarget as HTMLElement).blur();
         }
@@ -1128,11 +1239,17 @@ function EditableSpan({
 }
 
 /* ================================================================
-   MATERIALS CARROUSEL — animado + arrastável
+   MATERIALS CARROUSEL
    ================================================================ */
-function MaterialsCarousel() {
+function MaterialsCarousel({
+  materials, editMode, onChange,
+}: {
+  materials: Material[];
+  editMode: boolean;
+  onChange: (v: Material[]) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
-  const state = useRef({ isDown: false, startX: 0, startScroll: 0, paused: false, moved: false });
+  const state = useRef({ isDown: false, startX: 0, startScroll: 0, paused: false });
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -1151,7 +1268,7 @@ function MaterialsCarousel() {
     const tick = (now: number) => {
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
-      if (!state.current.isDown && !state.current.paused) {
+      if (!state.current.isDown && !state.current.paused && !editMode) {
         el.scrollLeft += SPEED * dt;
         wrap();
       }
@@ -1161,17 +1278,14 @@ function MaterialsCarousel() {
 
     const pause = () => { state.current.paused = true; };
     const resume = () => { state.current.paused = false; };
-
     const start = (clientX: number) => {
       state.current.isDown = true;
-      state.current.moved = false;
       state.current.startX = clientX;
       state.current.startScroll = el.scrollLeft;
       el.classList.add("dragging");
     };
     const move = (clientX: number) => {
       if (!state.current.isDown) return;
-      state.current.moved = true;
       el.scrollLeft = state.current.startScroll - (clientX - state.current.startX);
       wrap();
     };
@@ -1181,14 +1295,12 @@ function MaterialsCarousel() {
     };
 
     const onPointerDown = (e: PointerEvent) => {
-      pause();
-      start(e.clientX);
+      pause(); start(e.clientX);
       try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     };
     const onPointerMove = (e: PointerEvent) => {
       if (!state.current.isDown) return;
-      e.preventDefault();
-      move(e.clientX);
+      e.preventDefault(); move(e.clientX);
     };
     const onPointerUp = (e: PointerEvent) => {
       end();
@@ -1205,8 +1317,6 @@ function MaterialsCarousel() {
     el.addEventListener("pointerleave", onPointerLeave);
     el.addEventListener("pointerenter", onPointerEnter);
     el.addEventListener("wheel", onWheel, { passive: true });
-
-    // Fallback: release drag if user releases outside
     const onWindowUp = () => end();
     window.addEventListener("pointerup", onWindowUp);
     window.addEventListener("blur", onWindowUp);
@@ -1223,24 +1333,59 @@ function MaterialsCarousel() {
       window.removeEventListener("pointerup", onWindowUp);
       window.removeEventListener("blur", onWindowUp);
     };
-  }, []);
+  }, [editMode]);
 
-  const items = [...MATERIALS, ...MATERIALS];
+  const items = editMode ? materials : [...materials, ...materials];
+
+  const updateMat = (id: string, patch: Partial<Material>) =>
+    onChange(materials.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+  const removeMat = (id: string) => onChange(materials.filter((m) => m.id !== id));
+  const addMat = () =>
+    onChange([...materials, { id: "m" + Date.now(), icon: "??", color: "var(--sky)", title: "Novo material", text: "Descrição do material." }]);
 
   return (
-    <div className="materials-track" ref={ref} style={{ touchAction: "pan-y" }}>
-      {items.map((m, i) => (
-        <div
-          key={m.title + "-" + i}
-          className="mat-card"
-          style={{ "--accent": m.color } as CSSProperties}
-        >
-          <div className="mat-icon">{m.icon}</div>
-          <h4>{m.title}</h4>
-          <p>{m.text}</p>
-        </div>
-      ))}
-    </div>
+    <>
+      <div className="materials-track" ref={ref} style={{ touchAction: "pan-y" }}>
+        {items.map((m, i) => (
+          <div
+            key={m.id + "-" + i}
+            className="mat-card"
+            style={{ "--accent": m.color } as CSSProperties}
+          >
+            <EditableSpan
+              className="mat-icon"
+              value={m.icon}
+              editMode={editMode}
+              onCommit={(v) => updateMat(m.id, { icon: v })}
+            />
+            <EditableSpan
+              as="h4"
+              value={m.title}
+              editMode={editMode}
+              onCommit={(v) => updateMat(m.id, { title: v })}
+            />
+            <EditableSpan
+              as="p"
+              value={m.text}
+              editMode={editMode}
+              onCommit={(v) => updateMat(m.id, { text: v })}
+            />
+            {editMode && (
+              <button className="mat-del" onClick={() => removeMat(m.id)} title="Remover" style={{
+                position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: "50%",
+                border: "none", background: "rgba(239,68,68,.9)", color: "white", cursor: "pointer", fontWeight: 700,
+              }}>×</button>
+            )}
+          </div>
+        ))}
+        {editMode && (
+          <button className="mat-add" onClick={addMat} style={{
+            flex: "0 0 auto", minWidth: 200, borderRadius: 24, border: "2px dashed var(--border)",
+            background: "transparent", color: "var(--text-muted)", cursor: "pointer", padding: 20,
+          }}>+ Adicionar material</button>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -1281,7 +1426,7 @@ function LoginModal({
 function WhatsAppIcon() {
   return (
     <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
-      <path d="M19.11 17.205c-.372 0-1.088 1.39-1.518 1.39a.63.63 0 01-.315-.1c-.802-.402-1.504-.817-2.163-1.447-.545-.516-1.146-1.29-1.46-1.963a.426.426 0 01-.073-.215c0-.33.99-.945.99-1.49 0-.143-.73-2.09-.832-2.335-.143-.372-.214-.487-.6-.487-.187 0-.36-.043-.53-.043-.302 0-.53.115-.746.315-.688.645-1.032 1.318-1.06 2.264v.114c-.015.99.472 1.977 1.017 2.78 1.23 1.82 2.506 3.41 4.554 4.34.616.287 2.035.888 2.722.888.817 0 2.15-.688 2.478-1.478.13-.302.216-.702.216-1.06 0-.144-.026-.29-.06-.437-.078-.144-2.192-1.32-2.35-1.32zm-3.02 8.005a10.203 10.203 0 01-5.203-1.418l-3.73 1.19 1.212-3.6a10.171 10.171 0 01-1.55-5.394c0-5.62 4.577-10.196 10.196-10.196 5.62 0 10.196 4.577 10.196 10.196 0 5.61-4.577 10.196-10.196 10.196zm0-22.4C9.408 2.81 4 8.218 4 14.9c0 2.28.632 4.514 1.822 6.48L4 27.19l6.02-1.933a12.008 12.008 0 006.087 1.65c6.682 0 12.09-5.408 12.09-12.09.001-6.681-5.408-12.088-12.09-12.088z" />
+      <path d="M19.1 17.6c-.3-.2-1.9-.9-2.2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.6-1.6-.9-.8-1.6-1.8-1.8-2.2-.2-.3 0-.5.1-.7.1-.1.3-.4.5-.6.2-.2.2-.3.3-.5.1-.2 0-.4 0-.6 0-.2-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5-.2 0-.4 0-.6 0s-.5.1-.8.4c-.3.3-1.1 1.1-1.1 2.6 0 1.6 1.1 3.1 1.3 3.3.2.2 2.2 3.4 5.3 4.7.7.3 1.3.5 1.8.6.8.3 1.5.2 2 .1.6-.1 1.9-.8 2.1-1.5.3-.7.3-1.4.2-1.5-.1-.1-.3-.2-.6-.3zM16.1 3C9 3 3.3 8.7 3.3 15.8c0 2.3.6 4.4 1.7 6.3L3 29l7.1-1.9c1.8 1 3.9 1.5 6 1.5h.1c7 0 12.7-5.7 12.7-12.8C29 8.7 23.3 3 16.1 3zm0 23.5c-1.9 0-3.8-.5-5.4-1.5l-.4-.2-4.2 1.1 1.1-4.1-.3-.4c-1.1-1.7-1.6-3.7-1.6-5.7 0-5.9 4.8-10.6 10.7-10.6 2.9 0 5.5 1.1 7.5 3.1s3.1 4.7 3.1 7.5c.1 5.9-4.6 10.8-10.5 10.8z" />
     </svg>
   );
 }
