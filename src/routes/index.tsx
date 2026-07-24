@@ -934,8 +934,8 @@ ${bodyClone.outerHTML}
           </div>
         </div>
         <div className="foot-line">
-          <T k="foot.1"><span>Play Rio Brinquedos — Fabricando alegrias desde 1985.</span></T>
-          <T k="foot.2"><span>Mais de 40 anos · Tecnologia alemã · Entrega em 20 dias úteis.</span></T>
+          <T k="foot.1">Play Rio Brinquedos — Fabricando alegrias desde 1985.</T>
+          <T k="foot.2">Mais de 40 anos · Tecnologia alemã · Entrega em 20 dias úteis.</T>
         </div>
       </section>
 
