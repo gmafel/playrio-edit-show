@@ -361,13 +361,37 @@ function OrcamentoPage() {
     return parts.join("\n\n");
   };
 
+  // Walk clone + live trees in parallel (identical structure right after cloneNode)
+  // and copy the full computed style onto the clone as an inline style. This makes
+  // the exported document look correct even when the collected CSS fails to load
+  // (cross-origin fonts, third-party sheets, etc.).
+  const inlineComputedStyles = (clone: Element, live: Element) => {
+    const cs = window.getComputedStyle(live as Element);
+    let inline = "";
+    for (let i = 0; i < cs.length; i++) {
+      const p = cs.item(i);
+      const v = cs.getPropertyValue(p);
+      if (v) inline += `${p}:${v};`;
+    }
+    const prev = clone.getAttribute("style") || "";
+    clone.setAttribute("style", inline + prev);
+    const cc = clone.children;
+    const lc = live.children;
+    const n = Math.min(cc.length, lc.length);
+    for (let i = 0; i < n; i++) inlineComputedStyles(cc[i], lc[i]);
+  };
+
   const cleanClone = (root: HTMLElement): HTMLElement => {
     const clone = root.cloneNode(true) as HTMLElement;
+    // Inline computed styles BEFORE removing anything so indexes stay aligned.
+    try { inlineComputedStyles(clone, root); } catch (e) { console.warn("inline styles failed", e); }
     clone.querySelectorAll(STRIP_SELECTORS).forEach((el) => el.remove());
     clone.querySelectorAll('[contenteditable]').forEach((el) => el.removeAttribute("contenteditable"));
     clone.querySelectorAll("input.phone-input").forEach((el) => {
       const span = document.createElement("span");
       span.textContent = (el as HTMLInputElement).value;
+      const st = (el as HTMLElement).getAttribute("style");
+      if (st) span.setAttribute("style", st);
       el.replaceWith(span);
     });
     return clone;
@@ -393,11 +417,24 @@ function OrcamentoPage() {
     }));
   };
 
+  const waitForImages = async (root: HTMLElement) => {
+    const imgs = Array.from(root.querySelectorAll("img"));
+    await Promise.all(imgs.map(async (img) => {
+      try {
+        if ((img as HTMLImageElement).decode) await (img as HTMLImageElement).decode();
+      } catch { /* ignore decode errors */ }
+    }));
+  };
+
   const buildStandaloneDocument = async (): Promise<string> => {
     const bodyClone = cleanClone(document.body);
     await inlineAllImages(bodyClone);
     const css = await collectAllStyles();
     const theme = document.documentElement.getAttribute("data-theme") || "light";
+    const bodyCs = window.getComputedStyle(document.body);
+    const rootBg = bodyCs.backgroundColor || "#ffffff";
+    const rootColor = bodyCs.color || "#111";
+    const rootFont = bodyCs.fontFamily || "Inter, system-ui, sans-serif";
     return `<!DOCTYPE html>
 <html lang="pt-BR" data-theme="${theme}">
 <head>
@@ -405,7 +442,12 @@ function OrcamentoPage() {
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Orçamento Play Rio Playgrounds</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" />
-<style>${css}</style>
+<style>
+html,body{background:${rootBg};color:${rootColor};font-family:${rootFont};margin:0;}
+*{box-sizing:border-box;}
+img{max-width:100%;height:auto;}
+${css}
+</style>
 </head>
 ${bodyClone.outerHTML}
 </html>`;
@@ -426,32 +468,34 @@ ${bodyClone.outerHTML}
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error(err);
-      alert("Não foi possível gerar o HTML. Tente novamente.");
+      alert("Não foi possível gerar o HTML: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
   const downloadPdf = async () => {
-    // Render PDF directly from the LIVE document (fully styled) instead of
-    // an iframe, then strip editor controls in a clone that we mount off-screen.
     const holder = document.createElement("div");
     holder.style.cssText =
-      "position:fixed;left:0;top:0;width:1100px;background:var(--bg,#fff);z-index:-1;opacity:0.01;pointer-events:none;";
+      "position:fixed;left:0;top:0;width:1100px;background:#ffffff;z-index:-1;opacity:0.01;pointer-events:none;";
     const clone = cleanClone(document.body);
-    // move each child of the cloned body into holder
     Array.from(clone.childNodes).forEach((n) => holder.appendChild(n));
     document.body.appendChild(holder);
     try {
       await inlineAllImages(holder);
-      // Wait for layout + font settle
-      await new Promise((r) => setTimeout(r, 400));
-      const mod = await import("html2pdf.js");
-      const html2pdf = (mod as unknown as { default: unknown }).default as (
-        el?: HTMLElement,
-      ) => {
-        set: (opts: unknown) => {
-          from: (el: HTMLElement) => { save: () => Promise<void> };
-        };
-      };
+      await waitForImages(holder);
+      await new Promise((r) => setTimeout(r, 300));
+
+      let html2pdf: ((el?: HTMLElement) => {
+        set: (opts: unknown) => { from: (el: HTMLElement) => { save: () => Promise<void> } };
+      }) | null = null;
+      try {
+        const mod = await import("html2pdf.js");
+        html2pdf = ((mod as unknown as { default?: unknown }).default ?? mod) as typeof html2pdf;
+      } catch (e) {
+        throw new Error("Falha ao carregar html2pdf.js: " + (e instanceof Error ? e.message : String(e)));
+      }
+      if (typeof html2pdf !== "function") {
+        throw new Error("html2pdf.js não expôs a função esperada.");
+      }
       const stamp = new Date().toISOString().slice(0, 10);
       await html2pdf()
         .set({
@@ -472,12 +516,13 @@ ${bodyClone.outerHTML}
         .from(holder)
         .save();
     } catch (err) {
-      console.error(err);
-      alert("Não foi possível gerar o PDF. Tente novamente.");
+      console.error("PDF export failed:", err);
+      alert("Não foi possível gerar o PDF: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       holder.remove();
     }
   };
+
 
   const wa = waLink(phone);
 
