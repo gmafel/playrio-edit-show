@@ -753,7 +753,7 @@ ${bodyClone.outerHTML}
             )}
           </div>
           <T k="load.foot" as="p" className="load-foot">
-            Público-alvo: 0 a 4 anos com acompanhamento dos pais, de 04 a 12 anos com supervisão de um adulto.
+            Público-alvo: faixa etária de 0 a 4 anos com acompanhamento dos pais, de 04 a 12 com supervisão de um adulto.
           </T>
         </div>
       </section>
