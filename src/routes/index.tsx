@@ -484,12 +484,14 @@ ${bodyClone.outerHTML}
       await waitForImages(holder);
       await new Promise((r) => setTimeout(r, 300));
 
-      let html2pdf: ((el?: HTMLElement) => {
+      type Html2PdfFn = (el?: HTMLElement) => {
         set: (opts: unknown) => { from: (el: HTMLElement) => { save: () => Promise<void> } };
-      }) | null = null;
+      };
+      let html2pdf: Html2PdfFn | null = null;
       try {
         const mod = await import("html2pdf.js");
-        html2pdf = ((mod as unknown as { default?: unknown }).default ?? mod) as typeof html2pdf;
+        const candidate = (mod as unknown as { default?: unknown }).default ?? (mod as unknown);
+        html2pdf = candidate as Html2PdfFn;
       } catch (e) {
         throw new Error("Falha ao carregar html2pdf.js: " + (e instanceof Error ? e.message : String(e)));
       }
