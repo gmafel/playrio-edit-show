@@ -557,13 +557,6 @@ ${bodyClone.outerHTML}
                 </svg>
               )}
             </button>
-            <button className="icon-btn" onClick={downloadHtml} aria-label="Baixar HTML" title="Baixar orçamento em HTML">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            </button>
             <button className="icon-btn" onClick={downloadPdf} aria-label="Baixar PDF" title="Baixar orçamento em PDF">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
