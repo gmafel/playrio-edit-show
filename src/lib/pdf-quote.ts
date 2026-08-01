@@ -120,9 +120,9 @@ export async function generateQuotePdf(data: PdfData, opts?: { returnBuffer?: bo
   /** Label / value row with a thin separator. */
   const field = (label: string, value: string) => {
     if (!value) return;
-    const labelW = 45;
     setFont(9.5, "bold", GRAY);
-    const valueLines: string[] = doc.splitTextToSize(value, CW - labelW - 2);
+    const labelW = Math.max(45, doc.getTextWidth(label + ":") + 4);
+    const valueLines: string[] = doc.splitTextToSize(value, CW - labelW - 4);
     const h = Math.max(5.5, valueLines.length * 5);
     ensure(h + 3);
     doc.text(label + ":", M, y + 4);
@@ -198,10 +198,11 @@ export async function generateQuotePdf(data: PdfData, opts?: { returnBuffer?: bo
     const kv = (label: string, value: string, bold = false, color = DARK) => {
       if (!value) return;
       setFont(9, "bold", GRAY);
+      const off = Math.max(32, doc.getTextWidth(label + ":") + 3);
       doc.text(label + ":", textX, ty + 3.5);
       setFont(bold ? 12 : 10, bold ? "bold" : "normal", color);
-      const lines: string[] = doc.splitTextToSize(value, textW - 30);
-      doc.text(lines, textX + 30, ty + 3.5);
+      const lines: string[] = doc.splitTextToSize(value, textW - off);
+      doc.text(lines, textX + off, ty + 3.5);
       ty += Math.max(5.5, lines.length * 5);
     };
     kv("Área necessária", p.areaTag.replace(/^Área:\s*/i, ""));
