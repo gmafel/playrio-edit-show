@@ -64,7 +64,7 @@ async function toDataUrl(
   }
 }
 
-export async function generateQuotePdf(data: PdfData): Promise<void> {
+export async function generateQuotePdf(data: PdfData, opts?: { returnBuffer?: boolean }): Promise<ArrayBuffer | void> {
   const jspdfMod = await import("jspdf").catch((e) => {
     throw new Error("Falha ao carregar jsPDF: " + (e instanceof Error ? e.message : String(e)));
   });
@@ -253,5 +253,6 @@ export async function generateQuotePdf(data: PdfData): Promise<void> {
   }
 
   const stamp = new Date().toISOString().slice(0, 10);
+  if (opts?.returnBuffer) return doc.output("arraybuffer") as ArrayBuffer;
   doc.save(`orcamento-playrio-${stamp}.pdf`);
 }

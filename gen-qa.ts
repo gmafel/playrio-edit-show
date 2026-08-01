@@ -2,11 +2,8 @@ import { generateQuotePdf } from "/dev-server/src/lib/pdf-quote.ts";
 import { writeFileSync } from "fs";
 // @ts-ignore
 globalThis.document = { createElement: () => ({ getContext: () => null }) };
-const saved: any = {};
 const jspdf = await import("jspdf");
-const cands:any[]=[(jspdf as any).jsPDF,(jspdf as any).default,(jspdf as any).default?.jsPDF].filter(Boolean); console.log(cands.map(c=>typeof c.prototype?.save)); const P:any={};
-for(const c of cands){ if(c.prototype) c.prototype.save=function(){saved.buf=this.output("arraybuffer");}; }
-await generateQuotePdf({
+const buf:any = await generateQuotePdf({
   info: [{label:'Vendedora',value:'Maria Souza'},{label:'Cliente',value:'Escola Sol Nascente'},{label:'CPF / CNPJ',value:'12.345.678/0001-99'},{label:'Data do orçamento',value:'01/08/2026'}],
   products: [
     {title:'Big Steel Master',areaTag:'Área: 6x7 metros',image:'',priceOld:'R$ 19.990,00',priceNew:'R$ 16.990,00',tag:'Frete e instalação grátis',items:['Torre grande coberta com telhadinho pirâmide (1,40x1,40)','02 escorregadores ondulados de fibra (2,50m)','Conjunto de vogais e numerais (0 a 9)','Balanço baby e balanço cadeirinha teen']},
@@ -19,6 +16,6 @@ await generateQuotePdf({
   materials: [{title:'Aço estrutural',text:'Perfis de aço com pintura epóxi que repele calor e mantém as cores vivas.'},{title:'Fibra de vidro',text:'Escorregadores e telhadinhos em fibra de alta resistência.'}],
   audience: 'Público-alvo: faixa etária de 0 a 4 anos com acompanhamento dos pais, de 04 a 12 com supervisão de um adulto.',
   delivery: '20 dias úteis', freight: 'Frete e instalação grátis até 700km da fábrica (SJRP)', phone: '(17) 3305-3929',
-});
-writeFileSync("/tmp/pdfqa/out.pdf", Buffer.from(saved.buf));
+}, { returnBuffer: true });
+writeFileSync("/tmp/pdfqa/out.pdf", Buffer.from(buf));
 console.log("ok");
