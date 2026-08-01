@@ -341,81 +341,34 @@ function OrcamentoPage() {
 
 
   const downloadPdf = async () => {
-    // Hide editor UI during capture via a body class (no cloning — captures live state)
-    document.body.classList.add("pdf-exporting");
-    // Force light background/color for legibility in the PDF
-    const prevTheme = document.documentElement.getAttribute("data-theme");
-    document.documentElement.setAttribute("data-theme", "light");
-    // Wait a tick for the theme swap to paint
-    await new Promise((r) => setTimeout(r, 120));
-
     try {
-      // Ensure images (including base64/user-uploaded) are decoded
-      const imgs = Array.from(document.images);
-      await Promise.all(
-        imgs.map(async (img) => {
-          try {
-            if (!img.complete) {
-              await new Promise((res) => {
-                img.addEventListener("load", res, { once: true });
-                img.addEventListener("error", res, { once: true });
-              });
-            }
-            if (img.decode) await img.decode().catch(() => {});
-          } catch { /* ignore */ }
-        })
-      );
-
-      const [{ default: html2canvas }, jspdfMod] = await Promise.all([
-        import("html2canvas").catch((e) => {
-          throw new Error("Falha ao carregar html2canvas: " + (e instanceof Error ? e.message : String(e)));
-        }),
-        import("jspdf").catch((e) => {
-          throw new Error("Falha ao carregar jsPDF: " + (e instanceof Error ? e.message : String(e)));
-        }),
-      ]);
-      const JsPDFCtor = (jspdfMod as unknown as { jsPDF?: unknown; default?: unknown }).jsPDF
-        ?? (jspdfMod as unknown as { default?: unknown }).default;
-      if (typeof JsPDFCtor !== "function") {
-        throw new Error("jsPDF não expôs o construtor esperado.");
-      }
-
-      const target = document.querySelector<HTMLElement>(".page") || document.body;
-      const canvas = await html2canvas(target, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#ffffff",
-        windowWidth: Math.max(1100, target.scrollWidth),
-        logging: false,
+      const { generateQuotePdf } = await import("@/lib/pdf-quote");
+      await generateQuotePdf({
+        info: quoteInfo.map((f) => ({ label: f.label, value: f.value })),
+        products: products.map((p) => ({
+          title: p.title,
+          areaTag: p.areaTag,
+          image: images[p.id] ?? p.image,
+          priceOld: p.priceOld,
+          priceNew: p.priceNew,
+          tag: p.tag,
+          items: p.items,
+        })),
+        loads: loads.map((l) => ({ n: l.n, l: l.l, d: l.d })),
+        paySteps: paySteps.map((s) => ({ num: s.num, title: s.title, desc: s.desc })),
+        docs,
+        floors,
+        materials: materials.map((m) => ({ title: m.title, text: m.text })),
+        audience: texts["capacidade.audience"] ??
+          "Público-alvo: faixa etária de 0 a 4 anos com acompanhamento dos pais, de 04 a 12 com supervisão de um adulto.",
+        delivery: texts["prazo.entrega"] ?? "20 dias úteis",
+        freight: texts["frete.info"] ?? "Frete e instalação grátis até 700km da fábrica (SJRP)",
+        phone,
+        logo: logoAsset.url,
       });
-
-      // deno-lint-ignore no-explicit-any
-      const pdf = new (JsPDFCtor as any)({ unit: "mm", format: "a4", orientation: "portrait" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const imgW = pageW;
-      const imgH = (canvas.height * imgW) / canvas.width;
-
-      const imgData = canvas.toDataURL("image/jpeg", 0.92);
-      let heightLeft = imgH;
-      let position = 0;
-      pdf.addImage(imgData, "JPEG", 0, position, imgW, imgH);
-      heightLeft -= pageH;
-      while (heightLeft > 0) {
-        position = heightLeft - imgH;
-        pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 0, position, imgW, imgH);
-        heightLeft -= pageH;
-      }
-      const stamp = new Date().toISOString().slice(0, 10);
-      pdf.save(`orcamento-playrio-${stamp}.pdf`);
     } catch (err) {
       console.error("PDF export failed:", err);
       alert("Não foi possível gerar o PDF: " + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      document.body.classList.remove("pdf-exporting");
-      if (prevTheme) document.documentElement.setAttribute("data-theme", prevTheme);
     }
   };
 
