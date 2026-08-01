@@ -4,8 +4,8 @@ import { writeFileSync } from "fs";
 globalThis.document = { createElement: () => ({ getContext: () => null }) };
 const saved: any = {};
 const jspdf = await import("jspdf");
-const P:any=(jspdf as any).jsPDF.prototype; console.log("hasSave", typeof P.save);
-P.save = function(){ saved.buf = this.output("arraybuffer"); };
+const cands:any[]=[(jspdf as any).jsPDF,(jspdf as any).default,(jspdf as any).default?.jsPDF].filter(Boolean); console.log(cands.map(c=>typeof c.prototype?.save)); const P:any={};
+for(const c of cands){ if(c.prototype) c.prototype.save=function(){saved.buf=this.output("arraybuffer");}; }
 await generateQuotePdf({
   info: [{label:'Vendedora',value:'Maria Souza'},{label:'Cliente',value:'Escola Sol Nascente'},{label:'CPF / CNPJ',value:'12.345.678/0001-99'},{label:'Data do orçamento',value:'01/08/2026'}],
   products: [
