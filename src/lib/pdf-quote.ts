@@ -194,8 +194,8 @@ export async function generateQuotePdf(data: PdfData, opts?: { returnBuffer?: bo
     let textW = CW;
     let imgBottom = y;
     if (img) {
-      const iw = Math.min(CW * 0.55, 62 * IMG_SCALE);
-      const ih = Math.min(45 * IMG_SCALE, (img.h / img.w) * iw);
+      const iw = Math.min(CW * 0.45, 46 * IMG_SCALE);
+      const ih = (img.h / img.w) * iw; // mantém a proporção real (9:16) sem distorcer
       ensure(ih + 6);
       doc.addImage(img.data, "JPEG", M, y, iw, ih);
       doc.setDrawColor(LINE[0], LINE[1], LINE[2]);
