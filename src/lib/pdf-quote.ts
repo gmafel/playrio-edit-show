@@ -34,6 +34,17 @@ const DARK: [number, number, number] = [17, 17, 17];
 const GRAY: [number, number, number] = [102, 102, 102];
 const LINE: [number, number, number] = [210, 210, 210];
 
+/** Lê o mesmo controle central de tamanho das imagens usado no site (--img-scale). */
+function imgScale(): number {
+  try {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue("--img-scale");
+    const n = parseFloat(raw);
+    return Number.isFinite(n) && n > 0 ? Math.min(n, 2.2) : 1;
+  } catch {
+    return 1;
+  }
+}
+
 /** Load any image (url or data-url) and return a JPEG/PNG data URL + ratio. */
 async function toDataUrl(
   src: string
@@ -82,6 +93,7 @@ export async function generateQuotePdf(data: PdfData, opts?: { returnBuffer?: bo
   const PW = doc.internal.pageSize.getWidth();
   const PH = doc.internal.pageSize.getHeight();
   const M = 16;
+  const IMG_SCALE = imgScale();
   const CW = PW - M * 2;
   let y = M;
 
@@ -182,8 +194,8 @@ export async function generateQuotePdf(data: PdfData, opts?: { returnBuffer?: bo
     let textW = CW;
     let imgBottom = y;
     if (img) {
-      const iw = 62;
-      const ih = Math.min(45, (img.h / img.w) * iw);
+      const iw = Math.min(CW * 0.55, 62 * IMG_SCALE);
+      const ih = Math.min(45 * IMG_SCALE, (img.h / img.w) * iw);
       ensure(ih + 6);
       doc.addImage(img.data, "JPEG", M, y, iw, ih);
       doc.setDrawColor(LINE[0], LINE[1], LINE[2]);
