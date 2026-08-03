@@ -10,12 +10,17 @@ import {
   type ReactNode,
 } from "react";
 
-import heroAsset from "@/assets/hero.jpg.asset.json";
+import heroImg from "@/assets/hero-916.jpg";
 import quoteAsset from "@/assets/quote.jpg.asset.json";
 import product1Asset from "@/assets/product1.jpg.asset.json";
-import product2Asset from "@/assets/product2.jpg.asset.json";
+import product2Img from "@/assets/product2-916.jpg";
 import product3Asset from "@/assets/product3.jpg.asset.json";
-import contactAsset from "@/assets/contact.jpg.asset.json";
+import contactImg from "@/assets/contact-916.jpg";
+
+/* Fotos ajustadas por IA para o formato 9:16 (mesma origem usada no site e no PDF). */
+const heroAsset = { url: heroImg };
+const product2Asset = { url: product2Img };
+const contactAsset = { url: contactImg };
 import logoAsset from "@/assets/playrio-logo.png.asset.json";
 
 export const Route = createFileRoute("/")({
