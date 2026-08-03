@@ -6,6 +6,11 @@
    ============================================================ */
 
 :root{
+  /* ====== CONTROLE CENTRAL DO TAMANHO DAS IMAGENS ======
+     Altere apenas este valor para aumentar/diminuir TODAS as fotos
+     do site e também as fotos do PDF gerado. 1 = tamanho original. */
+  --img-scale:1.35;
+
   --orange:#E8562C;
   --yellow:#F5A623;
   --green:#2F9E52;
