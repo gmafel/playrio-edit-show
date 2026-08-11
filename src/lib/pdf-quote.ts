@@ -55,12 +55,11 @@ function imgScale(): number {
   }
 }
 
-/** Load any image (url or data-url) and return a data URL + natural size. */
+/** Load any image (url or data-url) and return a JPEG data URL + natural size. */
 async function toDataUrl(
   src: string,
-  opts?: { keepAlpha?: boolean }
-): Promise<{ data: string; w: number; h: number; fmt: "JPEG" | "PNG" } | null> {
-
+  opts?: { bg?: string }
+): Promise<{ data: string; w: number; h: number } | null> {
   if (!src) return null;
   try {
     const img = new Image();
@@ -78,14 +77,11 @@ async function toDataUrl(
     canvas.height = Math.max(1, Math.round((img.naturalHeight || 1) * scale));
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
-    if (!opts?.keepAlpha) {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
+    ctx.fillStyle = opts?.bg ?? "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return opts?.keepAlpha
-      ? { data: canvas.toDataURL("image/png"), w: canvas.width, h: canvas.height, fmt: "PNG" as const }
-      : { data: canvas.toDataURL("image/jpeg", 0.92), w: canvas.width, h: canvas.height, fmt: "JPEG" as const };
+    return { data: canvas.toDataURL("image/jpeg", 0.92), w: canvas.width, h: canvas.height };
+
 
   } catch {
     return null;
