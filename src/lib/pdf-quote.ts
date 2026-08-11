@@ -78,10 +78,15 @@ async function toDataUrl(
     canvas.height = Math.max(1, Math.round((img.naturalHeight || 1) * scale));
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!opts?.keepAlpha) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return { data: canvas.toDataURL("image/jpeg", 0.92), w: canvas.width, h: canvas.height };
+    return opts?.keepAlpha
+      ? { data: canvas.toDataURL("image/png"), w: canvas.width, h: canvas.height, fmt: "PNG" as const }
+      : { data: canvas.toDataURL("image/jpeg", 0.92), w: canvas.width, h: canvas.height, fmt: "JPEG" as const };
+
   } catch {
     return null;
   }
