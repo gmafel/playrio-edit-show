@@ -341,7 +341,10 @@ export async function generateQuotePdf(
   let col = 0;
   let rowTop = y;
   for (const l of data.loads) {
-    if (col === 0) ensure(30);
+    if (col === 0) {
+      ensure(30);
+      rowTop = y;
+    }
     const x = M + col * (bw + gap);
     fill(TINT);
     doc.roundedRect(x, rowTop, bw, 26, 4, 4, "F");
@@ -357,10 +360,10 @@ export async function generateQuotePdf(
     if (col === loadCols) {
       col = 0;
       y = rowTop + 30;
-      rowTop = y;
     }
   }
   if (col !== 0) y = rowTop + 30;
+
   fieldRows([{ label: "Público-alvo", value: data.audience }]);
 
   /* ---------- Materiais ---------- */
