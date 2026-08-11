@@ -55,10 +55,12 @@ function imgScale(): number {
   }
 }
 
-/** Load any image (url or data-url) and return a JPEG data URL + natural size. */
+/** Load any image (url or data-url) and return a data URL + natural size. */
 async function toDataUrl(
-  src: string
-): Promise<{ data: string; w: number; h: number } | null> {
+  src: string,
+  opts?: { keepAlpha?: boolean }
+): Promise<{ data: string; w: number; h: number; fmt: "JPEG" | "PNG" } | null> {
+
   if (!src) return null;
   try {
     const img = new Image();
