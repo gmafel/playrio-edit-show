@@ -102,7 +102,7 @@ export async function generateQuotePdf(
 
   // Pre-load images live from the current page state (seller edits included).
   const productImages = await Promise.all(data.products.map((p) => toDataUrl(p.image)));
-  const logoImage = data.logo ? await toDataUrl(data.logo, { keepAlpha: true }) : null;
+  const logoImage = data.logo ? await toDataUrl(data.logo, { bg: "#10224a" }) : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc: any = new (Ctor as any)({ unit: "mm", format: "a4", orientation: "portrait" });
@@ -141,7 +141,7 @@ export async function generateQuotePdf(
   if (logoImage) {
     const lw = 56;
     const lh = Math.min((logoImage.h / logoImage.w) * lw, 26);
-    doc.addImage(logoImage.data, logoImage.fmt, M, 22, lw, lh);
+    doc.addImage(logoImage.data, "JPEG", M, 22, lw, lh);
   }
   setFont(11, "bold", SUN);
   doc.text("PROPOSTA COMERCIAL", M, 68);
