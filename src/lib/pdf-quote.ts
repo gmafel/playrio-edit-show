@@ -145,7 +145,7 @@ export async function generateQuotePdf(
   if (logoImage) {
     const lw = 56;
     const lh = Math.min((logoImage.h / logoImage.w) * lw, 26);
-    doc.addImage(logoImage.data, "JPEG", M, 22, lw, lh);
+    doc.addImage(logoImage.data, logoImage.fmt, M, 22, lw, lh);
   }
   setFont(11, "bold", SUN);
   doc.text("PROPOSTA COMERCIAL", M, 68);
