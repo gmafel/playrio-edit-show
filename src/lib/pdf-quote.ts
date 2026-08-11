@@ -177,8 +177,9 @@ export async function generateQuotePdf(
   /* ---------------- Content pages ---------------- */
   newPage();
 
-  const sectionTitle = (title: string) => {
-    ensure(24);
+  const sectionTitle = (title: string, keepWith = 30) => {
+    ensure(20 + keepWith);
+
     y += 3;
     fill(NAVY);
     doc.roundedRect(M, y, CW, 11, 3, 3, "F");
