@@ -235,7 +235,7 @@ export async function generateQuotePdf(
       setFont(8.5, "bold", NAVY);
       const labelW = Math.max(46, doc.getTextWidth(r.label.toUpperCase()) + 12);
       setFont(10.5, "normal", DARK);
-      const valueLines: string[] = doc.splitTextToSize(r.value, CW - labelW - 10);
+      const valueLines: string[] = doc.splitTextToSize(r.value, (CW - labelW - 10) * 0.9);
       const h = Math.max(11, valueLines.length * 5 + 6);
       ensure(h + 3);
       fill(i % 2 === 0 ? BLUE_PANEL : WHITE);
