@@ -3,8 +3,8 @@
  * Pure jsPDF vector drawing (no html2canvas), so modern CSS colors
  * (oklch, color-mix) can never break the export.
  *
- * Layout: colored cover page, colored section bands, tinted panels,
- * highlighted price boxes, aspect-safe (contain) product photos.
+ * Vibrant palette: deep navy + light blue backgrounds, light green details,
+ * yellow highlights for prices/attention. White is never the dominant color.
  */
 
 export type PdfProduct = {
@@ -34,14 +34,16 @@ export type PdfData = {
 
 type RGB = [number, number, number];
 
-const NAVY: RGB = [16, 34, 74]; // brand navy
-const ACCENT: RGB = [30, 100, 200]; // brand blue
-const GREEN: RGB = [21, 106, 76]; // price highlight
-const SUN: RGB = [242, 168, 32]; // warm accent
-const DARK: RGB = [26, 28, 34];
-const GRAY: RGB = [104, 110, 122];
-const LINE: RGB = [216, 221, 230];
-const TINT: RGB = [243, 246, 251];
+const NAVY: RGB = [11, 39, 92]; // azul escuro
+const NAVY_SOFT: RGB = [24, 62, 130];
+const BLUE: RGB = [46, 124, 214]; // azul claro
+const BLUE_BG: RGB = [226, 240, 255]; // fundo azul claro das páginas
+const BLUE_PANEL: RGB = [208, 230, 252];
+const GREEN: RGB = [126, 217, 160]; // verde claro
+const GREEN_DEEP: RGB = [18, 92, 66];
+const YELLOW: RGB = [255, 199, 44]; // amarelo
+const DARK: RGB = [18, 26, 45];
+const GRAY: RGB = [86, 100, 124];
 const WHITE: RGB = [255, 255, 255];
 
 /** Lê o mesmo controle central de tamanho das imagens usado no site (--img-scale). */
@@ -55,11 +57,11 @@ function imgScale(): number {
   }
 }
 
-/** Load any image (url or data-url) and return a JPEG data URL + natural size. */
+/** Load any image (url or data-url) and return a data URL + natural size. */
 async function toDataUrl(
   src: string,
-  opts?: { bg?: string }
-): Promise<{ data: string; w: number; h: number } | null> {
+  opts?: { keepAlpha?: boolean }
+): Promise<{ data: string; w: number; h: number; fmt: "JPEG" | "PNG" } | null> {
   if (!src) return null;
   try {
     const img = new Image();
@@ -77,12 +79,19 @@ async function toDataUrl(
     canvas.height = Math.max(1, Math.round((img.naturalHeight || 1) * scale));
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
-    ctx.fillStyle = opts?.bg ?? "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!opts?.keepAlpha) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return { data: canvas.toDataURL("image/jpeg", 0.92), w: canvas.width, h: canvas.height };
-
-
+    return opts?.keepAlpha
+      ? { data: canvas.toDataURL("image/png"), w: canvas.width, h: canvas.height, fmt: "PNG" }
+      : {
+          data: canvas.toDataURL("image/jpeg", 0.92),
+          w: canvas.width,
+          h: canvas.height,
+          fmt: "JPEG",
+        };
   } catch {
     return null;
   }
@@ -102,7 +111,7 @@ export async function generateQuotePdf(
 
   // Pre-load images live from the current page state (seller edits included).
   const productImages = await Promise.all(data.products.map((p) => toDataUrl(p.image)));
-  const logoImage = data.logo ? await toDataUrl(data.logo, { bg: "#10224a" }) : null;
+  const logoImage = data.logo ? await toDataUrl(data.logo, { keepAlpha: true }) : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc: any = new (Ctor as any)({ unit: "mm", format: "a4", orientation: "portrait" });
@@ -121,56 +130,82 @@ export async function generateQuotePdf(
   const fill = (c: RGB) => doc.setFillColor(c[0], c[1], c[2]);
   const stroke = (c: RGB) => doc.setDrawColor(c[0], c[1], c[2]);
 
+  /** Colored page canvas so no page is predominantly white. */
+  const paintPage = () => {
+    fill(BLUE_BG);
+    doc.rect(0, 0, PW, PH, "F");
+    // top band
+    fill(NAVY);
+    doc.rect(0, 0, PW, 8, "F");
+    fill(YELLOW);
+    doc.rect(0, 8, PW * 0.38, 2, "F");
+    fill(GREEN);
+    doc.rect(PW * 0.38, 8, PW * 0.22, 2, "F");
+    // bottom band
+    fill(NAVY);
+    doc.rect(0, PH - 14, PW, 14, "F");
+    fill(YELLOW);
+    doc.rect(0, PH - 16, PW * 0.3, 2, "F");
+  };
+
   const newPage = () => {
     doc.addPage();
+    paintPage();
     y = M + 6;
   };
   const ensure = (need: number) => {
-    if (y + need > PH - 18) newPage();
+    if (y + need > PH - 22) newPage();
   };
 
   /* ---------------- Cover ---------------- */
   fill(NAVY);
   doc.rect(0, 0, PW, PH, "F");
-  // decorative bands
-  fill(ACCENT);
-  doc.rect(0, PH * 0.62, PW, 3, "F");
-  fill(SUN);
-  doc.rect(0, PH * 0.62 + 3, PW * 0.42, 3, "F");
+  fill(NAVY_SOFT);
+  doc.circle(PW + 10, -10, 70, "F");
+  fill(BLUE);
+  doc.rect(0, PH * 0.6, PW, 3.5, "F");
+  fill(YELLOW);
+  doc.rect(0, PH * 0.6 + 3.5, PW * 0.44, 3.5, "F");
+  fill(GREEN);
+  doc.rect(PW * 0.44, PH * 0.6 + 3.5, PW * 0.2, 3.5, "F");
 
   if (logoImage) {
     const lw = 56;
     const lh = Math.min((logoImage.h / logoImage.w) * lw, 26);
-    doc.addImage(logoImage.data, "JPEG", M, 22, lw, lh);
+    doc.addImage(logoImage.data, logoImage.fmt, M, 22, lw, lh);
   }
-  setFont(11, "bold", SUN);
-  doc.text("PROPOSTA COMERCIAL", M, 68);
+  fill(YELLOW);
+  doc.roundedRect(M, 60, 62, 10, 5, 5, "F");
+  setFont(9.5, "bold", NAVY);
+  doc.text("PROPOSTA COMERCIAL", M + 7, 66.7);
   setFont(34, "bold", WHITE);
-  doc.text("Orçamento de", M, 84);
-  doc.text("Playground", M, 98);
-  setFont(11.5, "normal", [205, 214, 232]);
-  doc.text("Play Rio Playgrounds — fabricando alegrias desde 1985", M, 112);
+  doc.text("Orçamento de", M, 88);
+  setFont(34, "bold", YELLOW);
+  doc.text("Playground", M, 102);
+  setFont(11.5, "normal", [198, 222, 255]);
+  doc.text("Play Rio Playgrounds — fabricando alegrias desde 1985", M, 114);
 
-  // cover highlight card with the first quote info fields
   const coverFields = [
     ...data.info.filter((f) => f.value).slice(0, 4),
     { label: "Prazo de entrega", value: data.delivery },
     { label: "Contato", value: data.phone },
   ].filter((f) => f.value);
-  const cardY = PH * 0.62 + 16;
-  const cardH = Math.max(40, coverFields.length * 9 + 14);
-  fill([25, 48, 96]);
-  doc.roundedRect(M, cardY, CW, cardH, 5, 5, "F");
-  let cy = cardY + 12;
+  const cardY = PH * 0.6 + 16;
+  const cardH = Math.max(40, coverFields.length * 9 + 16);
+  fill(NAVY_SOFT);
+  doc.roundedRect(M, cardY, CW, cardH, 6, 6, "F");
+  fill(GREEN);
+  doc.roundedRect(M, cardY, 3, cardH, 2, 2, "F");
+  let cy = cardY + 13;
   for (const f of coverFields) {
-    setFont(8.5, "bold", [150, 176, 224]);
-    doc.text(f.label.toUpperCase(), M + 8, cy);
+    setFont(8.5, "bold", GREEN);
+    doc.text(f.label.toUpperCase(), M + 9, cy);
     setFont(11, "bold", WHITE);
-    const v: string[] = doc.splitTextToSize(f.value, CW - 70);
-    doc.text(v[0] ?? "", M + 70, cy);
+    const v: string[] = doc.splitTextToSize(f.value, CW - 78);
+    doc.text(v[0] ?? "", M + 74, cy);
     cy += 9;
   }
-  setFont(9, "normal", [170, 186, 214]);
+  setFont(9, "normal", [170, 196, 236]);
   doc.text(
     new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }),
     M,
@@ -181,36 +216,37 @@ export async function generateQuotePdf(
   newPage();
 
   const sectionTitle = (title: string, keepWith = 30) => {
-    ensure(20 + keepWith);
-
+    ensure(22 + keepWith);
     y += 3;
     fill(NAVY);
-    doc.roundedRect(M, y, CW, 11, 3, 3, "F");
-    fill(SUN);
-    doc.rect(M + 4, y + 3, 2.4, 5, "F");
+    doc.roundedRect(M, y, CW, 12, 4, 4, "F");
+    fill(YELLOW);
+    doc.roundedRect(M + 5, y + 3, 2.8, 6, 1.4, 1.4, "F");
     setFont(11, "bold", WHITE);
-    doc.text(title.toUpperCase(), M + 10, y + 7.4);
-    y += 17;
+    doc.text(title.toUpperCase(), M + 11, y + 7.8);
+    y += 18;
   };
 
-  /** Tinted panel with label/value rows. */
+  /** Colored panel with label/value rows. */
   const fieldRows = (rows: { label: string; value: string }[]) => {
     const items = rows.filter((r) => r.value);
     if (!items.length) return;
-    for (const r of items) {
+    items.forEach((r, i) => {
       setFont(9, "bold", GRAY);
       const labelW = Math.max(46, doc.getTextWidth(r.label.toUpperCase()) + 6);
       const valueLines: string[] = doc.splitTextToSize(r.value, CW - labelW - 12);
       const h = Math.max(11, valueLines.length * 5 + 6);
       ensure(h + 3);
-      fill(TINT);
-      doc.roundedRect(M, y, CW, h, 3, 3, "F");
-      setFont(8.5, "bold", GRAY);
-      doc.text(r.label.toUpperCase(), M + 6, y + 7);
+      fill(i % 2 === 0 ? BLUE_PANEL : WHITE);
+      doc.roundedRect(M, y, CW, h, 3.5, 3.5, "F");
+      fill(BLUE);
+      doc.roundedRect(M, y, 2.2, h, 1.1, 1.1, "F");
+      setFont(8.5, "bold", NAVY);
+      doc.text(r.label.toUpperCase(), M + 7, y + 7);
       setFont(10.5, "normal", DARK);
       doc.text(valueLines, M + labelW, y + 7);
       y += h + 2.5;
-    }
+    });
   };
 
   const bullets = (list: string[], x = M + 4, width = CW - 8) => {
@@ -218,8 +254,8 @@ export async function generateQuotePdf(
     for (const raw of list) {
       const lines: string[] = doc.splitTextToSize(raw, width - 7);
       ensure(lines.length * 5 + 2);
-      fill(ACCENT);
-      doc.circle(x + 1.4, y + 1.9, 0.9, "F");
+      fill(BLUE);
+      doc.circle(x + 1.4, y + 1.9, 1, "F");
       setFont(10, "normal", DARK);
       doc.text(lines, x + 5.5, y + 3);
       y += lines.length * 5 + 1.5;
@@ -239,7 +275,6 @@ export async function generateQuotePdf(
   sectionTitle("Playgrounds selecionados");
   data.products.forEach((p, i) => {
     const img = productImages[i];
-    // photo box: keep natural aspect (contain) inside a fixed-width frame
     const boxW = Math.min(CW * 0.46, 74 * IMG_SCALE);
     let boxH = 0;
     let dw = 0;
@@ -255,25 +290,26 @@ export async function generateQuotePdf(
       }
       boxH = dh + 6;
     }
-    ensure(Math.max(boxH, 46) + 16);
+    ensure(Math.max(boxH, 46) + 22);
 
-    // card background
     const cardTop = y;
-    setFont(13.5, "bold", NAVY);
-    doc.text(p.title, M + 6, y + 9);
-    y += 14;
+    // card background (light blue) drawn later would cover content, so draw header now
+    fill(NAVY);
+    doc.roundedRect(M, y, CW, 12, 4, 4, "F");
+    setFont(12.5, "bold", WHITE);
+    doc.text(p.title, M + 7, y + 8.2);
+    y += 16;
 
     let textX = M + 6;
     let textW = CW - 12;
     let imgBottom = y;
     if (img) {
-      fill([250, 251, 253]);
-      doc.roundedRect(M + 6, y, boxW, boxH, 3, 3, "F");
-      // centered, aspect-preserved
-      doc.addImage(img.data, "JPEG", M + 6 + (boxW - dw) / 2, y + 3, dw, dh);
-      stroke(LINE);
-      doc.setLineWidth(0.2);
-      doc.roundedRect(M + 6, y, boxW, boxH, 3, 3, "S");
+      fill(WHITE);
+      doc.roundedRect(M + 6, y, boxW, boxH, 3.5, 3.5, "F");
+      doc.addImage(img.data, img.fmt, M + 6 + (boxW - dw) / 2, y + 3, dw, dh);
+      stroke(BLUE);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(M + 6, y, boxW, boxH, 3.5, 3.5, "S");
       textX = M + 6 + boxW + 7;
       textW = CW - 12 - boxW - 7;
       imgBottom = y + boxH;
@@ -282,7 +318,7 @@ export async function generateQuotePdf(
     let ty = y;
     const kv = (label: string, value: string) => {
       if (!value) return;
-      setFont(8, "bold", GRAY);
+      setFont(8, "bold", GREEN_DEEP);
       doc.text(label.toUpperCase(), textX, ty + 3.2);
       setFont(10, "normal", DARK);
       const lines: string[] = doc.splitTextToSize(value, textW);
@@ -302,20 +338,20 @@ export async function generateQuotePdf(
       ty += 13;
     }
     if (p.priceNew) {
-      const bh = 16;
-      fill(GREEN);
-      doc.roundedRect(textX, ty, Math.min(textW, 62), bh, 3, 3, "F");
-      setFont(7.5, "bold", [190, 228, 210]);
-      doc.text("NESTA PROPOSTA", textX + 5, ty + 6);
-      setFont(13, "bold", WHITE);
-      doc.text(p.priceNew, textX + 5, ty + 12.6);
+      const bh = 17;
+      fill(YELLOW);
+      doc.roundedRect(textX, ty, Math.min(textW, 64), bh, 4, 4, "F");
+      setFont(7.5, "bold", [120, 78, 6]);
+      doc.text("NESTA PROPOSTA", textX + 5, ty + 6.2);
+      setFont(13.5, "bold", NAVY);
+      doc.text(p.priceNew, textX + 5, ty + 13.4);
       ty += bh + 3;
     }
     if (p.tag) {
-      fill([255, 244, 220]);
+      fill(GREEN);
       const tw = doc.getTextWidth(p.tag) * 0.42 + 10;
       doc.roundedRect(textX, ty, Math.min(textW, Math.max(30, tw)), 8, 4, 4, "F");
-      setFont(8.5, "bold", [150, 96, 10]);
+      setFont(8.5, "bold", GREEN_DEEP);
       doc.text(p.tag, textX + 5, ty + 5.4);
       ty += 11;
     }
@@ -324,16 +360,15 @@ export async function generateQuotePdf(
 
     if (p.items.length) {
       ensure(12);
-      setFont(9, "bold", GRAY);
+      setFont(9, "bold", NAVY);
       doc.text("ITENS INCLUSOS", M + 6, y + 3);
       y += 7;
       bullets(p.items, M + 6, CW - 12);
     }
 
-    // card outline
-    stroke(LINE);
-    doc.setLineWidth(0.3);
-    if (cardTop < y) doc.roundedRect(M, cardTop, CW, y - cardTop + 4, 4, 4, "S");
+    stroke(NAVY);
+    doc.setLineWidth(0.4);
+    if (cardTop < y) doc.roundedRect(M, cardTop, CW, y - cardTop + 4, 4.5, 4.5, "S");
     y += 10;
   });
 
@@ -346,27 +381,27 @@ export async function generateQuotePdf(
   let rowTop = y;
   for (const l of data.loads) {
     if (col === 0) {
-      ensure(30);
+      ensure(32);
       rowTop = y;
     }
     const x = M + col * (bw + gap);
-    fill(TINT);
-    doc.roundedRect(x, rowTop, bw, 26, 4, 4, "F");
-    fill(ACCENT);
-    doc.rect(x, rowTop, bw, 1.6, "F");
-    setFont(15, "bold", NAVY);
-    doc.text(l.n, x + 5, rowTop + 12);
-    setFont(8.5, "bold", GRAY);
-    doc.text(doc.splitTextToSize(l.l, bw - 10)[0] ?? "", x + 5, rowTop + 18);
-    setFont(8, "normal", GRAY);
-    doc.text(doc.splitTextToSize(l.d, bw - 10).slice(0, 1), x + 5, rowTop + 23);
+    fill(NAVY);
+    doc.roundedRect(x, rowTop, bw, 27, 4, 4, "F");
+    fill(YELLOW);
+    doc.rect(x + 4, rowTop, bw - 8, 1.8, "F");
+    setFont(15, "bold", YELLOW);
+    doc.text(l.n, x + 5, rowTop + 13);
+    setFont(8.5, "bold", GREEN);
+    doc.text(doc.splitTextToSize(l.l, bw - 10)[0] ?? "", x + 5, rowTop + 19);
+    setFont(8, "normal", [198, 218, 246]);
+    doc.text(doc.splitTextToSize(l.d, bw - 10).slice(0, 1), x + 5, rowTop + 24);
     col++;
     if (col === loadCols) {
       col = 0;
-      y = rowTop + 30;
+      y = rowTop + 31;
     }
   }
-  if (col !== 0) y = rowTop + 30;
+  if (col !== 0) y = rowTop + 31;
 
   fieldRows([{ label: "Público-alvo", value: data.audience }]);
 
@@ -380,11 +415,11 @@ export async function generateQuotePdf(
     const lines: string[] = doc.splitTextToSize(s.desc, CW - 30);
     const h = Math.max(18, lines.length * 5 + 13);
     ensure(h + 3);
-    fill(TINT);
-    doc.roundedRect(M, y, CW, h, 4, 4, "F");
-    fill(ACCENT);
-    doc.circle(M + 10, y + 10, 5.5, "F");
-    setFont(10, "bold", WHITE);
+    fill(BLUE_PANEL);
+    doc.roundedRect(M, y, CW, h, 4.5, 4.5, "F");
+    fill(NAVY);
+    doc.circle(M + 10, y + 10, 5.8, "F");
+    setFont(10, "bold", YELLOW);
     doc.text(String(s.num), M + 10, y + 11.5, { align: "center" });
     setFont(10.5, "bold", NAVY);
     doc.text(s.title, M + 20, y + 8);
@@ -398,50 +433,49 @@ export async function generateQuotePdf(
   const half = (CW - 6) / 2;
   const docLines = data.docs;
   const floorLines = data.floors;
-  const blockH = Math.max(docLines.length, floorLines.length) * 6 + 20;
+  const blockH = Math.max(docLines.length, floorLines.length) * 6 + 22;
   ensure(blockH + 4);
   const top = y;
-  const drawList = (x: number, title: string, list: string[], color: RGB) => {
-    fill(TINT);
-    doc.roundedRect(x, top, half, blockH, 4, 4, "F");
+  const drawList = (x: number, title: string, list: string[], color: RGB, bg: RGB) => {
+    fill(bg);
+    doc.roundedRect(x, top, half, blockH, 4.5, 4.5, "F");
     fill(color);
-    doc.rect(x, top, half, 1.8, "F");
+    doc.roundedRect(x, top, half, 6, 4.5, 4.5, "F");
+    doc.rect(x, top + 3, half, 3, "F");
     setFont(9.5, "bold", NAVY);
-    doc.text(title.toUpperCase(), x + 6, top + 10);
-    let ly = top + 15;
-    setFont(9.5, "normal", DARK);
+    doc.text(title.toUpperCase(), x + 6, top + 12.5);
+    let ly = top + 17;
     for (const item of list) {
       const ls: string[] = doc.splitTextToSize(item, half - 16);
       fill(color);
-      doc.circle(x + 7.4, ly + 1.6, 0.9, "F");
+      doc.circle(x + 7.4, ly + 1.6, 1, "F");
       setFont(9.5, "normal", DARK);
       doc.text(ls, x + 11, ly + 2.8);
       ly += ls.length * 5 + 1;
     }
   };
-  drawList(M, "Documentação necessária", docLines, ACCENT);
-  drawList(M + half + 6, "Pisos compatíveis", floorLines, SUN);
+  drawList(M, "Documentação necessária", docLines, YELLOW, BLUE_PANEL);
+  drawList(M + half + 6, "Pisos compatíveis", floorLines, GREEN, [223, 245, 232]);
   y = top + blockH + 6;
 
   /* ---------- Closing band ---------- */
-  ensure(30);
+  ensure(32);
   fill(NAVY);
-  doc.roundedRect(M, y, CW, 24, 5, 5, "F");
-  setFont(11.5, "bold", WHITE);
-  doc.text("Vamos construir a alegria do seu espaço?", M + 8, y + 10);
-  setFont(10, "normal", [180, 198, 228]);
-  doc.text(`Fale com a gente: ${data.phone}`, M + 8, y + 17.5);
+  doc.roundedRect(M, y, CW, 26, 6, 6, "F");
+  fill(YELLOW);
+  doc.roundedRect(M, y, 3, 26, 1.5, 1.5, "F");
+  setFont(11.5, "bold", YELLOW);
+  doc.text("Vamos construir a alegria do seu espaço?", M + 9, y + 11);
+  setFont(10, "normal", [200, 220, 250]);
+  doc.text(`Fale com a gente: ${data.phone}`, M + 9, y + 18.5);
 
   /* ---------- Footer on every page (skip cover) ---------- */
   const pages = doc.getNumberOfPages();
   for (let p = 2; p <= pages; p++) {
     doc.setPage(p);
-    stroke(LINE);
-    doc.setLineWidth(0.2);
-    doc.line(M, PH - 12, PW - M, PH - 12);
-    setFont(8.5, "normal", GRAY);
-    doc.text(`Play Rio Playgrounds • ${data.phone}`, M, PH - 7);
-    doc.text(`Página ${p - 1} de ${pages - 1}`, PW - M, PH - 7, { align: "right" });
+    setFont(8.5, "normal", [206, 224, 250]);
+    doc.text(`Play Rio Playgrounds • ${data.phone}`, M, PH - 5.5);
+    doc.text(`Página ${p - 1} de ${pages - 1}`, PW - M, PH - 5.5, { align: "right" });
   }
 
   const stamp = new Date().toISOString().slice(0, 10);
