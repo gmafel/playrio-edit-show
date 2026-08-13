@@ -430,9 +430,9 @@ export async function generateQuotePdf(
     const lines: string[] = doc.splitTextToSize(s.desc, CW - 30);
     const h = Math.max(18, lines.length * 5 + 13);
     ensure(h + 3);
-    fill(BLUE_PANEL);
+    fill(PURPLE_PANEL);
     doc.roundedRect(M, y, CW, h, 4.5, 4.5, "F");
-    fill(NAVY);
+    fill(PURPLE);
     doc.circle(M + 10, y + 10, 5.8, "F");
     setFont(10, "bold", YELLOW);
     doc.text(String(s.num), M + 10, y + 11.5, { align: "center" });
