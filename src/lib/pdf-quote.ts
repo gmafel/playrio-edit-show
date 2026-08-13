@@ -319,10 +319,10 @@ export async function generateQuotePdf(
     let textW = CW - 12;
     let imgBottom = y;
     if (img) {
-      fill(WHITE);
+      fill(YELLOW_PANEL);
       doc.roundedRect(M + 6, y, boxW, boxH, 3.5, 3.5, "F");
       doc.addImage(img.data, img.fmt, M + 6 + (boxW - dw) / 2, y + 3, dw, dh);
-      stroke(BLUE);
+      stroke(YELLOW);
       doc.setLineWidth(0.3);
       doc.roundedRect(M + 6, y, boxW, boxH, 3.5, 3.5, "S");
       textX = M + 6 + boxW + 7;
