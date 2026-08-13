@@ -142,14 +142,18 @@ export async function generateQuotePdf(
     fill(NAVY);
     doc.rect(0, 0, PW, 8, "F");
     fill(YELLOW);
-    doc.rect(0, 8, PW * 0.38, 2, "F");
+    doc.rect(0, 8, PW * 0.30, 2, "F");
     fill(GREEN);
-    doc.rect(PW * 0.38, 8, PW * 0.22, 2, "F");
+    doc.rect(PW * 0.30, 8, PW * 0.22, 2, "F");
+    fill(PURPLE);
+    doc.rect(PW * 0.52, 8, PW * 0.18, 2, "F");
     // bottom band
     fill(NAVY);
     doc.rect(0, PH - 14, PW, 14, "F");
     fill(YELLOW);
-    doc.rect(0, PH - 16, PW * 0.3, 2, "F");
+    doc.rect(0, PH - 16, PW * 0.22, 2, "F");
+    fill(PURPLE);
+    doc.rect(PW * 0.22, PH - 16, PW * 0.18, 2, "F");
   };
 
   const newPage = () => {
