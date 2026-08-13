@@ -173,9 +173,11 @@ export async function generateQuotePdf(
   fill(BLUE);
   doc.rect(0, PH * 0.6, PW, 3.5, "F");
   fill(YELLOW);
-  doc.rect(0, PH * 0.6 + 3.5, PW * 0.44, 3.5, "F");
+  doc.rect(0, PH * 0.6 + 3.5, PW * 0.34, 3.5, "F");
   fill(GREEN);
-  doc.rect(PW * 0.44, PH * 0.6 + 3.5, PW * 0.2, 3.5, "F");
+  doc.rect(PW * 0.34, PH * 0.6 + 3.5, PW * 0.18, 3.5, "F");
+  fill(PURPLE);
+  doc.rect(PW * 0.52, PH * 0.6 + 3.5, PW * 0.16, 3.5, "F");
 
   if (logoImage) {
     const lw = 56;
