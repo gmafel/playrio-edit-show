@@ -354,8 +354,10 @@ export async function generateQuotePdf(
     }
     if (p.priceNew) {
       const bh = 17;
-      fill(YELLOW);
+      fill(YELLOW_PANEL);
       doc.roundedRect(textX, ty, Math.min(textW, 64), bh, 4, 4, "F");
+      fill(YELLOW);
+      doc.roundedRect(textX, ty, 2.4, bh, 1.2, 1.2, "F");
       setFont(7.5, "bold", [120, 78, 6]);
       doc.text("NESTA PROPOSTA", textX + 5, ty + 6.2);
       setFont(13.5, "bold", [120, 78, 6]);
