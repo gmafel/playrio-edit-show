@@ -470,7 +470,7 @@ export async function generateQuotePdf(
     }
   };
   drawList(M, "Documentação necessária", docLines, YELLOW, BLUE_PANEL);
-  drawList(M + half + 6, "Pisos compatíveis", floorLines, GREEN, [223, 245, 232]);
+  drawList(M + half + 6, "Pisos compatíveis", floorLines, GREEN, GREEN_PANEL);
   y = top + blockH + 6;
 
   /* ---------- Closing band ---------- */
