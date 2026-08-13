@@ -35,13 +35,17 @@ export type PdfData = {
 type RGB = [number, number, number];
 
 const NAVY: RGB = [11, 39, 92]; // azul escuro
-const NAVY_SOFT: RGB = [24, 62, 130];
+const NAVY_SOFT: RGB = [30, 60, 140];
 const BLUE: RGB = [46, 124, 214]; // azul claro
-const BLUE_BG: RGB = [226, 240, 255]; // fundo azul claro das páginas
-const BLUE_PANEL: RGB = [208, 230, 252];
+const BLUE_BG: RGB = [210, 235, 255]; // fundo azul claro das páginas
+const BLUE_PANEL: RGB = [120, 195, 255]; // azul claro vibrante
 const GREEN: RGB = [126, 217, 160]; // verde claro
 const GREEN_DEEP: RGB = [18, 92, 66];
+const GREEN_PANEL: RGB = [195, 245, 215]; // verde claro vibrante
 const YELLOW: RGB = [255, 199, 44]; // amarelo
+const YELLOW_PANEL: RGB = [255, 235, 160]; // amarelo claro vibrante
+const PURPLE: RGB = [142, 84, 220]; // roxo
+const PURPLE_PANEL: RGB = [225, 210, 255]; // roxo claro vibrante
 const DARK: RGB = [18, 26, 45];
 const GRAY: RGB = [86, 100, 124];
 const WHITE: RGB = [255, 255, 255];
@@ -138,14 +142,18 @@ export async function generateQuotePdf(
     fill(NAVY);
     doc.rect(0, 0, PW, 8, "F");
     fill(YELLOW);
-    doc.rect(0, 8, PW * 0.38, 2, "F");
+    doc.rect(0, 8, PW * 0.30, 2, "F");
     fill(GREEN);
-    doc.rect(PW * 0.38, 8, PW * 0.22, 2, "F");
+    doc.rect(PW * 0.30, 8, PW * 0.22, 2, "F");
+    fill(PURPLE);
+    doc.rect(PW * 0.52, 8, PW * 0.18, 2, "F");
     // bottom band
     fill(NAVY);
     doc.rect(0, PH - 14, PW, 14, "F");
     fill(YELLOW);
-    doc.rect(0, PH - 16, PW * 0.3, 2, "F");
+    doc.rect(0, PH - 16, PW * 0.22, 2, "F");
+    fill(PURPLE);
+    doc.rect(PW * 0.22, PH - 16, PW * 0.18, 2, "F");
   };
 
   const newPage = () => {
@@ -165,9 +173,11 @@ export async function generateQuotePdf(
   fill(BLUE);
   doc.rect(0, PH * 0.6, PW, 3.5, "F");
   fill(YELLOW);
-  doc.rect(0, PH * 0.6 + 3.5, PW * 0.44, 3.5, "F");
+  doc.rect(0, PH * 0.6 + 3.5, PW * 0.34, 3.5, "F");
   fill(GREEN);
-  doc.rect(PW * 0.44, PH * 0.6 + 3.5, PW * 0.2, 3.5, "F");
+  doc.rect(PW * 0.34, PH * 0.6 + 3.5, PW * 0.18, 3.5, "F");
+  fill(PURPLE);
+  doc.rect(PW * 0.52, PH * 0.6 + 3.5, PW * 0.16, 3.5, "F");
 
   if (logoImage) {
     const lw = 56;
@@ -231,16 +241,20 @@ export async function generateQuotePdf(
   const fieldRows = (rows: { label: string; value: string }[]) => {
     const items = rows.filter((r) => r.value);
     if (!items.length) return;
+    const panels: RGB[] = [BLUE_PANEL, GREEN_PANEL, YELLOW_PANEL, PURPLE_PANEL];
+    const accents: RGB[] = [BLUE, GREEN_DEEP, [200, 145, 0], PURPLE];
     items.forEach((r, i) => {
+      const panel = panels[i % panels.length];
+      const accent = accents[i % accents.length];
       setFont(8.5, "bold", NAVY);
       const labelW = Math.max(46, doc.getTextWidth(r.label.toUpperCase()) + 12);
       setFont(10.5, "normal", DARK);
       const valueLines: string[] = doc.splitTextToSize(r.value, (CW - labelW - 10) * 0.9);
       const h = Math.max(11, valueLines.length * 5 + 6);
       ensure(h + 3);
-      fill(i % 2 === 0 ? BLUE_PANEL : WHITE);
+      fill(panel);
       doc.roundedRect(M, y, CW, h, 3.5, 3.5, "F");
-      fill(BLUE);
+      fill(accent);
       doc.roundedRect(M, y, 2.2, h, 1.1, 1.1, "F");
       setFont(8.5, "bold", NAVY);
       doc.text(r.label.toUpperCase(), M + 7, y + 7);
@@ -305,10 +319,10 @@ export async function generateQuotePdf(
     let textW = CW - 12;
     let imgBottom = y;
     if (img) {
-      fill(WHITE);
+      fill(YELLOW_PANEL);
       doc.roundedRect(M + 6, y, boxW, boxH, 3.5, 3.5, "F");
       doc.addImage(img.data, img.fmt, M + 6 + (boxW - dw) / 2, y + 3, dw, dh);
-      stroke(BLUE);
+      stroke(YELLOW);
       doc.setLineWidth(0.3);
       doc.roundedRect(M + 6, y, boxW, boxH, 3.5, 3.5, "S");
       textX = M + 6 + boxW + 7;
@@ -416,9 +430,9 @@ export async function generateQuotePdf(
     const lines: string[] = doc.splitTextToSize(s.desc, CW - 30);
     const h = Math.max(18, lines.length * 5 + 13);
     ensure(h + 3);
-    fill(BLUE_PANEL);
+    fill(PURPLE_PANEL);
     doc.roundedRect(M, y, CW, h, 4.5, 4.5, "F");
-    fill(NAVY);
+    fill(PURPLE);
     doc.circle(M + 10, y + 10, 5.8, "F");
     setFont(10, "bold", YELLOW);
     doc.text(String(s.num), M + 10, y + 11.5, { align: "center" });
@@ -456,7 +470,7 @@ export async function generateQuotePdf(
     }
   };
   drawList(M, "Documentação necessária", docLines, YELLOW, BLUE_PANEL);
-  drawList(M + half + 6, "Pisos compatíveis", floorLines, GREEN, [223, 245, 232]);
+  drawList(M + half + 6, "Pisos compatíveis", floorLines, GREEN, GREEN_PANEL);
   y = top + blockH + 6;
 
   /* ---------- Closing band ---------- */
