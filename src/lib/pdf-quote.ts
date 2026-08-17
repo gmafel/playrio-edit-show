@@ -231,8 +231,9 @@ export async function generateQuotePdf(
     y += 3;
     fill(NAVY);
     doc.roundedRect(M, y, CW, 12, 4, 4, "F");
-    fill(GREEN);
+    fill(BLUE_PANEL);
     doc.roundedRect(M + 5, y + 3, 2.8, 6, 1.4, 1.4, "F");
+
     setFont(11, "bold", WHITE);
     doc.text(title.toUpperCase(), M + 11, y + 7.8);
     y += 18;
