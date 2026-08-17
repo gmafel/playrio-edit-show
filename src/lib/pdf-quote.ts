@@ -434,14 +434,17 @@ export async function generateQuotePdf(
     const lines: string[] = doc.splitTextToSize(s.desc, CW - 30);
     const h = Math.max(18, lines.length * 5 + 13);
     ensure(h + 3);
-    fill(PURPLE_PANEL);
+    fill(BLUE_PANEL);
     doc.roundedRect(M, y, CW, h, 4.5, 4.5, "F");
     fill(PURPLE);
-    doc.circle(M + 10, y + 10, 5.8, "F");
+    doc.rect(M, y + 3, 1.6, h - 6, "F");
+    fill(NAVY);
+    doc.circle(M + 12, y + 10, 5.8, "F");
     setFont(10, "bold", WHITE);
-    doc.text(String(s.num), M + 10, y + 11.5, { align: "center" });
-    setFont(10.5, "bold", [72, 34, 130]);
-    doc.text(s.title, M + 20, y + 8);
+    doc.text(String(s.num), M + 12, y + 11.5, { align: "center" });
+    setFont(10.5, "bold", NAVY);
+    doc.text(s.title, M + 22, y + 8);
+
     setFont(10, "normal", DARK);
     doc.text(lines, M + 20, y + 14);
     y += h + 3;
