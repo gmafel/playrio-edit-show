@@ -444,9 +444,9 @@ export async function generateQuotePdf(
     doc.text(String(s.num), M + 12, y + 11.5, { align: "center" });
     setFont(10.5, "bold", NAVY);
     doc.text(s.title, M + 22, y + 8);
-
     setFont(10, "normal", DARK);
-    doc.text(lines, M + 20, y + 14);
+    doc.text(lines, M + 22, y + 14);
+
     y += h + 3;
   }
 
