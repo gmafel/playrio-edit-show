@@ -192,7 +192,6 @@ export async function generateQuotePdf(
   doc.text("Orçamento de", M, 88);
   setFont(34, "bold", BLUE_PANEL);
   doc.text("Playground", M, 102);
-
   setFont(11.5, "normal", [198, 222, 255]);
   doc.text("Play Rio Playgrounds — fabricando alegrias desde 1985", M, 114);
 
@@ -205,11 +204,12 @@ export async function generateQuotePdf(
   const cardH = Math.max(40, coverFields.length * 9 + 16);
   fill(NAVY_SOFT);
   doc.roundedRect(M, cardY, CW, cardH, 6, 6, "F");
-  fill(GREEN);
+  fill(PURPLE);
   doc.roundedRect(M, cardY, 3, cardH, 2, 2, "F");
   let cy = cardY + 13;
   for (const f of coverFields) {
-    setFont(8.5, "bold", GREEN);
+    setFont(8.5, "bold", BLUE_PANEL);
+
     doc.text(f.label.toUpperCase(), M + 9, cy);
     setFont(11, "bold", WHITE);
     const v: string[] = doc.splitTextToSize(f.value, CW - 78);
