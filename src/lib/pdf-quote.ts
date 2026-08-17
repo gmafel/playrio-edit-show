@@ -334,8 +334,8 @@ export async function generateQuotePdf(
     const kv = (label: string, value: string) => {
       if (!value) return;
       setFont(8, "bold", NAVY);
-
       doc.text(label.toUpperCase(), textX, ty + 3.2);
+
       setFont(10, "normal", DARK);
       const lines: string[] = doc.splitTextToSize(value, textW);
       doc.text(lines, textX, ty + 8.4);
