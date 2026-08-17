@@ -464,11 +464,12 @@ export async function generateQuotePdf(
     fill(bg);
     doc.roundedRect(x, top, half, blockH, 4.5, 4.5, "F");
     fill(color);
-    doc.roundedRect(x, top, half, 6, 4.5, 4.5, "F");
-    doc.rect(x, top + 3, half, 3, "F");
-    setFont(9.5, "bold", NAVY);
-    doc.text(title.toUpperCase(), x + 6, top + 12.5);
-    let ly = top + 17;
+    doc.roundedRect(x, top, half, 10, 4.5, 4.5, "F");
+    doc.rect(x, top + 5, half, 5, "F");
+    setFont(9.5, "bold", WHITE);
+    doc.text(title.toUpperCase(), x + 6, top + 6.6);
+    let ly = top + 15;
+
     for (const item of list) {
       const ls: string[] = doc.splitTextToSize(item, half - 16);
       fill(color);
