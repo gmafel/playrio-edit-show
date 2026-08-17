@@ -241,11 +241,11 @@ export async function generateQuotePdf(
   const fieldRows = (rows: { label: string; value: string }[]) => {
     const items = rows.filter((r) => r.value);
     if (!items.length) return;
-    const panels: RGB[] = [BLUE_PANEL, GREEN_PANEL, PURPLE_PANEL];
-    const accents: RGB[] = [BLUE, GREEN_DEEP, PURPLE];
-    items.forEach((r, i) => {
-      const panel = panels[i % panels.length];
-      const accent = accents[i % accents.length];
+    // Neutral data rows: always the SAME light-blue panel + blue accent.
+    const panel: RGB = BLUE_PANEL;
+    const accent: RGB = NAVY;
+    items.forEach((r) => {
+
       setFont(8.5, "bold", NAVY);
       const labelW = Math.max(46, doc.getTextWidth(r.label.toUpperCase()) + 12);
       setFont(10.5, "normal", DARK);
