@@ -410,8 +410,8 @@ export async function generateQuotePdf(
     setFont(15, "bold", BLUE_PANEL);
     doc.text(l.n, x + 5, rowTop + 13);
     setFont(8.5, "bold", WHITE);
-
     doc.text(doc.splitTextToSize(l.l, bw - 10)[0] ?? "", x + 5, rowTop + 19);
+
     setFont(8, "normal", [198, 218, 246]);
     doc.text(doc.splitTextToSize(l.d, bw - 10).slice(0, 1), x + 5, rowTop + 24);
     col++;
