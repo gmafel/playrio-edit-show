@@ -476,8 +476,9 @@ export async function generateQuotePdf(
       ly += ls.length * 5 + 1;
     }
   };
-  drawList(M, "Documentação necessária", docLines, PURPLE, BLUE_PANEL);
-  drawList(M + half + 6, "Pisos compatíveis", floorLines, GREEN, GREEN_PANEL);
+  drawList(M, "Documentação necessária", docLines, NAVY, BLUE_PANEL);
+  drawList(M + half + 6, "Pisos compatíveis", floorLines, NAVY, BLUE_PANEL);
+
   y = top + blockH + 6;
 
   /* ---------- Closing band ---------- */
