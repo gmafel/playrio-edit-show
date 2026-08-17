@@ -184,14 +184,15 @@ export async function generateQuotePdf(
     const lh = Math.min((logoImage.h / logoImage.w) * lw, 26);
     doc.addImage(logoImage.data, logoImage.fmt, M, 22, lw, lh);
   }
-  fill(GREEN);
+  fill(BLUE_PANEL);
   doc.roundedRect(M, 60, 62, 10, 5, 5, "F");
-  setFont(9.5, "bold", GREEN_DEEP);
+  setFont(9.5, "bold", NAVY);
   doc.text("PROPOSTA COMERCIAL", M + 7, 66.7);
   setFont(34, "bold", WHITE);
   doc.text("Orçamento de", M, 88);
-  setFont(34, "bold", GREEN);
+  setFont(34, "bold", BLUE_PANEL);
   doc.text("Playground", M, 102);
+
   setFont(11.5, "normal", [198, 222, 255]);
   doc.text("Play Rio Playgrounds — fabricando alegrias desde 1985", M, 114);
 
