@@ -184,13 +184,13 @@ export async function generateQuotePdf(
     const lh = Math.min((logoImage.h / logoImage.w) * lw, 26);
     doc.addImage(logoImage.data, logoImage.fmt, M, 22, lw, lh);
   }
-  fill(GREEN);
+  fill(BLUE_PANEL);
   doc.roundedRect(M, 60, 62, 10, 5, 5, "F");
-  setFont(9.5, "bold", GREEN_DEEP);
+  setFont(9.5, "bold", NAVY);
   doc.text("PROPOSTA COMERCIAL", M + 7, 66.7);
   setFont(34, "bold", WHITE);
   doc.text("Orçamento de", M, 88);
-  setFont(34, "bold", GREEN);
+  setFont(34, "bold", BLUE_PANEL);
   doc.text("Playground", M, 102);
   setFont(11.5, "normal", [198, 222, 255]);
   doc.text("Play Rio Playgrounds — fabricando alegrias desde 1985", M, 114);
@@ -204,11 +204,12 @@ export async function generateQuotePdf(
   const cardH = Math.max(40, coverFields.length * 9 + 16);
   fill(NAVY_SOFT);
   doc.roundedRect(M, cardY, CW, cardH, 6, 6, "F");
-  fill(GREEN);
+  fill(PURPLE);
   doc.roundedRect(M, cardY, 3, cardH, 2, 2, "F");
   let cy = cardY + 13;
   for (const f of coverFields) {
-    setFont(8.5, "bold", GREEN);
+    setFont(8.5, "bold", BLUE_PANEL);
+
     doc.text(f.label.toUpperCase(), M + 9, cy);
     setFont(11, "bold", WHITE);
     const v: string[] = doc.splitTextToSize(f.value, CW - 78);
@@ -230,8 +231,9 @@ export async function generateQuotePdf(
     y += 3;
     fill(NAVY);
     doc.roundedRect(M, y, CW, 12, 4, 4, "F");
-    fill(GREEN);
+    fill(BLUE_PANEL);
     doc.roundedRect(M + 5, y + 3, 2.8, 6, 1.4, 1.4, "F");
+
     setFont(11, "bold", WHITE);
     doc.text(title.toUpperCase(), M + 11, y + 7.8);
     y += 18;
@@ -241,11 +243,11 @@ export async function generateQuotePdf(
   const fieldRows = (rows: { label: string; value: string }[]) => {
     const items = rows.filter((r) => r.value);
     if (!items.length) return;
-    const panels: RGB[] = [BLUE_PANEL, GREEN_PANEL, PURPLE_PANEL];
-    const accents: RGB[] = [BLUE, GREEN_DEEP, PURPLE];
-    items.forEach((r, i) => {
-      const panel = panels[i % panels.length];
-      const accent = accents[i % accents.length];
+    // Neutral data rows: always the SAME light-blue panel + blue accent.
+    const panel: RGB = BLUE_PANEL;
+    const accent: RGB = NAVY;
+    items.forEach((r) => {
+
       setFont(8.5, "bold", NAVY);
       const labelW = Math.max(46, doc.getTextWidth(r.label.toUpperCase()) + 12);
       setFont(10.5, "normal", DARK);
@@ -333,8 +335,9 @@ export async function generateQuotePdf(
     let ty = y;
     const kv = (label: string, value: string) => {
       if (!value) return;
-      setFont(8, "bold", GREEN_DEEP);
+      setFont(8, "bold", NAVY);
       doc.text(label.toUpperCase(), textX, ty + 3.2);
+
       setFont(10, "normal", DARK);
       const lines: string[] = doc.splitTextToSize(value, textW);
       doc.text(lines, textX, ty + 8.4);
@@ -408,8 +411,9 @@ export async function generateQuotePdf(
     doc.rect(x + 4, rowTop, bw - 8, 1.8, "F");
     setFont(15, "bold", BLUE_PANEL);
     doc.text(l.n, x + 5, rowTop + 13);
-    setFont(8.5, "bold", GREEN);
+    setFont(8.5, "bold", WHITE);
     doc.text(doc.splitTextToSize(l.l, bw - 10)[0] ?? "", x + 5, rowTop + 19);
+
     setFont(8, "normal", [198, 218, 246]);
     doc.text(doc.splitTextToSize(l.d, bw - 10).slice(0, 1), x + 5, rowTop + 24);
     col++;
@@ -432,16 +436,19 @@ export async function generateQuotePdf(
     const lines: string[] = doc.splitTextToSize(s.desc, CW - 30);
     const h = Math.max(18, lines.length * 5 + 13);
     ensure(h + 3);
-    fill(PURPLE_PANEL);
+    fill(BLUE_PANEL);
     doc.roundedRect(M, y, CW, h, 4.5, 4.5, "F");
     fill(PURPLE);
-    doc.circle(M + 10, y + 10, 5.8, "F");
+    doc.rect(M, y + 3, 1.6, h - 6, "F");
+    fill(NAVY);
+    doc.circle(M + 12, y + 10, 5.8, "F");
     setFont(10, "bold", WHITE);
-    doc.text(String(s.num), M + 10, y + 11.5, { align: "center" });
-    setFont(10.5, "bold", [72, 34, 130]);
-    doc.text(s.title, M + 20, y + 8);
+    doc.text(String(s.num), M + 12, y + 11.5, { align: "center" });
+    setFont(10.5, "bold", NAVY);
+    doc.text(s.title, M + 22, y + 8);
     setFont(10, "normal", DARK);
-    doc.text(lines, M + 20, y + 14);
+    doc.text(lines, M + 22, y + 14);
+
     y += h + 3;
   }
 
@@ -457,11 +464,12 @@ export async function generateQuotePdf(
     fill(bg);
     doc.roundedRect(x, top, half, blockH, 4.5, 4.5, "F");
     fill(color);
-    doc.roundedRect(x, top, half, 6, 4.5, 4.5, "F");
-    doc.rect(x, top + 3, half, 3, "F");
-    setFont(9.5, "bold", NAVY);
-    doc.text(title.toUpperCase(), x + 6, top + 12.5);
-    let ly = top + 17;
+    doc.roundedRect(x, top, half, 10, 4.5, 4.5, "F");
+    doc.rect(x, top + 5, half, 5, "F");
+    setFont(9.5, "bold", WHITE);
+    doc.text(title.toUpperCase(), x + 6, top + 6.6);
+    let ly = top + 15;
+
     for (const item of list) {
       const ls: string[] = doc.splitTextToSize(item, half - 16);
       fill(color);
@@ -471,8 +479,9 @@ export async function generateQuotePdf(
       ly += ls.length * 5 + 1;
     }
   };
-  drawList(M, "Documentação necessária", docLines, PURPLE, BLUE_PANEL);
-  drawList(M + half + 6, "Pisos compatíveis", floorLines, GREEN, GREEN_PANEL);
+  drawList(M, "Documentação necessária", docLines, NAVY, BLUE_PANEL);
+  drawList(M + half + 6, "Pisos compatíveis", floorLines, NAVY, BLUE_PANEL);
+
   y = top + blockH + 6;
 
   /* ---------- Closing band ---------- */
