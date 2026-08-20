@@ -1182,7 +1182,12 @@ function MaterialsCarousel({
       el.classList.remove("dragging");
     };
 
+    const isInteractive = (t: EventTarget | null) =>
+      t instanceof Element &&
+      !!t.closest('button, a, input, textarea, select, [contenteditable="true"]');
+
     const onPointerDown = (e: PointerEvent) => {
+      if (isInteractive(e.target)) return; // deixa clique/edição funcionar nos cards
       pause(); start(e.clientX);
       try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     };
