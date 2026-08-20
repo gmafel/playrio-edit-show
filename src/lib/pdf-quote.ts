@@ -211,8 +211,8 @@ function autoFrameSubject(src: Framed, targetAspect: number): Promise<Framed> {
             !!rx && !!ry && vividTotal > SW * SH * 0.004 && maxX > minX && maxY > minY;
           if (detected) {
             // Margem de segurança de 12% em cada eixo — garante o brinquedo inteiro.
-            const padX = (maxX - minX) * 0.12 + 4;
-            const padY = (maxY - minY) * 0.12 + 4;
+            const padX = (maxX - minX) * 0.18 + 6;
+            const padY = (maxY - minY) * 0.18 + 6;
             const x0 = Math.max(0, minX - padX);
             const y0 = Math.max(0, minY - padY);
             const x1 = Math.min(SW, maxX + padX);
