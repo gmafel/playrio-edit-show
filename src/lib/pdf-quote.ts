@@ -184,7 +184,15 @@ export async function generateQuotePdf(
   if (typeof Ctor !== "function") throw new Error("jsPDF não expôs o construtor esperado.");
 
   // Pre-load images live from the current page state (seller edits included).
-  const productImages = await Promise.all(data.products.map((p) => toDataUrl(p.image)));
+  // Cada foto de playground passa pelo ajuste automático de enquadramento
+  // (sem recorte e sem distorção) para a proporção usada na moldura do PDF.
+  const PRODUCT_ASPECT = 74 / 58;
+  const productImages = await Promise.all(
+    data.products.map(async (p) => {
+      const base = await toDataUrl(p.image);
+      return base ? await outpaintToAspect(base, PRODUCT_ASPECT) : null;
+    })
+  );
   const logoImage = data.logo ? await toDataUrl(data.logo, { keepAlpha: true }) : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
