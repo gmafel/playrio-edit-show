@@ -137,37 +137,57 @@ function autoFrameSubject(src: Framed, targetAspect: number): Promise<Framed> {
             return [d[i]!, d[i + 1]!, d[i + 2]!] as [number, number, number];
           };
 
-          // Cores de fundo: amostras nas 4 bordas.
+          // Cores de fundo: amostras nas 4 bordas (usadas só para a cor de
+          // preenchimento nítido quando sobra espaço na moldura).
           const samples: [number, number, number][] = [];
           for (let x = 0; x < SW; x += 4) {
-            samples.push(at(x, 0), at(x, SH - 1), at(x, Math.min(SH - 1, 2)));
+            samples.push(at(x, 0), at(x, SH - 1));
           }
           for (let y = 0; y < SH; y += 4) {
             samples.push(at(0, y), at(SW - 1, y));
           }
-          const isBg = (c: [number, number, number]) => {
-            for (const s of samples) {
-              const dist =
-                Math.abs(c[0] - s[0]) + Math.abs(c[1] - s[1]) + Math.abs(c[2] - s[2]);
-              if (dist < 78) return true;
-            }
-            return false;
-          };
 
-          let minX = SW,
-            minY = SH,
-            maxX = -1,
-            maxY = -1;
+          /**
+           * Detecção do brinquedo: os playgrounds são pintados com cores muito
+           * vivas (vermelho, amarelo, azul, verde forte), diferentes de céu,
+           * grama, areia e muros. Contamos pixels "vivos" por coluna/linha e
+           * pegamos a faixa onde eles se concentram.
+           */
+          const vividCol = new Array<number>(SW).fill(0);
+          const vividRow = new Array<number>(SH).fill(0);
+          let vividTotal = 0;
           for (let y = 0; y < SH; y++) {
             for (let x = 0; x < SW; x++) {
-              if (!isBg(at(x, y))) {
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
+              const [r, g, b] = at(x, y);
+              const mx = Math.max(r, g, b);
+              const mn = Math.min(r, g, b);
+              const sat = mx === 0 ? 0 : (mx - mn) / mx;
+              const isSky = b > r + 25 && b > g + 10 && mx > 150; // céu azul claro
+              const isFoliage = g >= r && g >= b && g - b > 12 && mx < 200; // grama/árvore
+              if (sat > 0.42 && mx > 70 && !isSky && !isFoliage) {
+                vividCol[x]!++;
+                vividRow[y]!++;
+                vividTotal++;
               }
             }
           }
+
+          const rangeOf = (hist: number[]) => {
+            const max = Math.max(...hist);
+            if (max <= 0) return null;
+            const thr = Math.max(1, max * 0.08);
+            let a = 0;
+            let b = hist.length - 1;
+            while (a < hist.length && hist[a]! < thr) a++;
+            while (b > a && hist[b]! < thr) b--;
+            return a < b ? ([a, b] as [number, number]) : null;
+          };
+          const rx = rangeOf(vividCol);
+          const ry = rangeOf(vividRow);
+          const minX = rx ? rx[0] : 0;
+          const maxX = rx ? rx[1] : -1;
+          const minY = ry ? ry[0] : 0;
+          const maxY = ry ? ry[1] : -1;
 
           // Cor média das bordas (preenchimento nítido, sem blur).
           let br = 0,
@@ -188,7 +208,7 @@ function autoFrameSubject(src: Framed, targetAspect: number): Promise<Framed> {
             bw2 = iw,
             bh2 = ih;
           const detected =
-            maxX > minX && maxY > minY && (maxX - minX) * (maxY - minY) > SW * SH * 0.01;
+            !!rx && !!ry && vividTotal > SW * SH * 0.004 && maxX > minX && maxY > minY;
           if (detected) {
             // Margem de segurança de 12% em cada eixo — garante o brinquedo inteiro.
             const padX = (maxX - minX) * 0.12 + 4;
