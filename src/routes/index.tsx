@@ -17,6 +17,7 @@ import product2Asset from "@/assets/product2.jpg.asset.json";
 import product3Asset from "@/assets/product3.jpg.asset.json";
 import contactAsset from "@/assets/contact.jpg.asset.json";
 import logoAsset from "@/assets/playrio-logo.png.asset.json";
+import logoPdfAsset from "@/assets/playrio-logo-pdf.png.asset.json";
 
 export const Route = createFileRoute("/")({
   component: OrcamentoPage,
@@ -364,7 +365,7 @@ function OrcamentoPage() {
         delivery: texts["prazo.entrega"] ?? "20 dias úteis",
         freight: texts["frete.info"] ?? "Frete e instalação grátis até 700km da fábrica (SJRP)",
         phone,
-        logo: logoAsset.url,
+        logo: logoPdfAsset.url,
       });
     } catch (err) {
       console.error("PDF export failed:", err);
