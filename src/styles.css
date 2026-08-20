@@ -306,6 +306,7 @@ html[data-theme="dark"] .brand-logo{
 .materials-track::-webkit-scrollbar{height:8px}
 .materials-track::-webkit-scrollbar-thumb{background:var(--orange);border-radius:999px}
 .mat-card{
+  position:relative;
   flex:0 0 300px;scroll-snap-align:start;
   background:var(--surface);border:1px solid var(--border);border-radius:22px;
   padding:28px 24px;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;
