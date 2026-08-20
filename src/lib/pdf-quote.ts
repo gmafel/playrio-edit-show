@@ -101,6 +101,76 @@ async function toDataUrl(
   }
 }
 
+/**
+ * Ajuste automático de enquadramento SEM recorte:
+ * a foto original é preservada 100% (nada é cortado nem distorcido) e o espaço
+ * que falta para atingir a proporção usada no PDF é preenchido automaticamente
+ * por uma extensão do próprio fundo da foto (outpainting por espelhamento +
+ * desfoque), de forma que o playground ocupe o maior tamanho possível na moldura.
+ */
+function outpaintToAspect(
+  src: { data: string; w: number; h: number; fmt: "JPEG" | "PNG" },
+  targetAspect: number
+): Promise<{ data: string; w: number; h: number; fmt: "JPEG" | "PNG" }> {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const iw = img.naturalWidth || src.w;
+          const ih = img.naturalHeight || src.h;
+          const cur = iw / ih;
+          // Já está próximo da proporção alvo: nada a fazer.
+          if (Math.abs(cur - targetAspect) < 0.04) return resolve(src);
+
+          let cw: number;
+          let ch: number;
+          if (cur > targetAspect) {
+            cw = iw;
+            ch = Math.round(iw / targetAspect);
+          } else {
+            ch = ih;
+            cw = Math.round(ih * targetAspect);
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = cw;
+          canvas.height = ch;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return resolve(src);
+
+          const dx = Math.round((cw - iw) / 2);
+          const dy = Math.round((ch - ih) / 2);
+
+          // 1) Fundo: a própria foto ampliada (cover) e desfocada — nunca aparece
+          //    sobre o playground, só nas áreas vazias ao redor.
+          const scale = Math.max(cw / iw, ch / ih) * 1.15;
+          const bw = iw * scale;
+          const bh = ih * scale;
+          ctx.filter = "blur(28px) saturate(1.05)";
+          ctx.drawImage(img, (cw - bw) / 2, (ch - bh) / 2, bw, bh);
+          ctx.filter = "none";
+
+          // 2) Foto original, inteira, centralizada e sem distorção.
+          ctx.drawImage(img, dx, dy, iw, ih);
+
+          resolve({
+            data: canvas.toDataURL("image/jpeg", 0.92),
+            w: cw,
+            h: ch,
+            fmt: "JPEG",
+          });
+        } catch {
+          resolve(src);
+        }
+      };
+      img.onerror = () => resolve(src);
+      img.src = src.data;
+    } catch {
+      resolve(src);
+    }
+  });
+}
+
 export async function generateQuotePdf(
   data: PdfData,
   opts?: { returnBuffer?: boolean }
