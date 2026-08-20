@@ -273,7 +273,7 @@ export async function generateQuotePdf(
   const productImages = await Promise.all(
     data.products.map(async (p) => {
       const base = await toDataUrl(p.image);
-      return base ? await outpaintToAspect(base, PRODUCT_ASPECT) : null;
+      return base ? await autoFrameSubject(base, PRODUCT_ASPECT) : null;
     })
   );
   const logoImage = data.logo ? await toDataUrl(data.logo, { keepAlpha: true }) : null;
