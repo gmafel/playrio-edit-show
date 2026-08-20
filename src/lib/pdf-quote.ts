@@ -557,11 +557,14 @@ export async function generateQuotePdf(
     }
     if (p.tag) {
       fill(GREEN);
-      const tw = doc.getTextWidth(p.tag) * 0.42 + 10;
-      doc.roundedRect(textX, ty, Math.min(textW, Math.max(30, tw)), 8, 4, 4, "F");
       setFont(8.5, "bold", GREEN_DEEP);
-      doc.text(p.tag, textX + 5, ty + 5.4);
-      ty += 11;
+      const tagW = doc.getTextWidth(p.tag);
+      const padX = 5.5;
+      const pillW = Math.min(textW, Math.max(34, tagW + padX * 2));
+      const pillH = 10;
+      doc.roundedRect(textX, ty, pillW, pillH, 5, 5, "F");
+      doc.text(p.tag, textX + pillW / 2, ty + pillH / 2 + 2.8, { align: "center" });
+      ty += pillH + 4;
     }
 
     y = Math.max(imgBottom, ty) + 4;
