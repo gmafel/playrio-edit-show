@@ -101,17 +101,20 @@ async function toDataUrl(
   }
 }
 
+type Framed = { data: string; w: number; h: number; fmt: "JPEG" | "PNG" };
+
 /**
- * Ajuste automático de enquadramento SEM recorte:
- * a foto original é preservada 100% (nada é cortado nem distorcido) e o espaço
- * que falta para atingir a proporção usada no PDF é preenchido automaticamente
- * por uma extensão do próprio fundo da foto (outpainting por espelhamento +
- * desfoque), de forma que o playground ocupe o maior tamanho possível na moldura.
+ * Enquadramento automático das fotos de playground para o PDF.
+ *
+ * 1) Detecta a área ocupada pelo brinquedo comparando cada pixel com as cores
+ *    de fundo amostradas nas bordas da foto (céu, grama, piso, parede).
+ * 2) Amplia (zoom) descartando SOMENTE fundo vazio ao redor — a caixa detectada
+ *    recebe uma margem de segurança generosa, então nenhuma parte do playground
+ *    é cortada.
+ * 3) Ajusta a proporção alvo usando pixels reais da foto; se ainda faltar
+ *    espaço, completa com a cor sólida do fundo amostrado (nítido, sem blur).
  */
-function outpaintToAspect(
-  src: { data: string; w: number; h: number; fmt: "JPEG" | "PNG" },
-  targetAspect: number
-): Promise<{ data: string; w: number; h: number; fmt: "JPEG" | "PNG" }> {
+function autoFrameSubject(src: Framed, targetAspect: number): Promise<Framed> {
   return new Promise((resolve) => {
     try {
       const img = new Image();
@@ -119,44 +122,124 @@ function outpaintToAspect(
         try {
           const iw = img.naturalWidth || src.w;
           const ih = img.naturalHeight || src.h;
-          const cur = iw / ih;
-          // Já está próximo da proporção alvo: nada a fazer.
-          if (Math.abs(cur - targetAspect) < 0.04) return resolve(src);
+          const work = document.createElement("canvas");
+          const SW = Math.min(320, iw);
+          const SH = Math.max(1, Math.round((ih / iw) * SW));
+          work.width = SW;
+          work.height = SH;
+          const wctx = work.getContext("2d", { willReadFrequently: true });
+          if (!wctx) return resolve(src);
+          wctx.drawImage(img, 0, 0, SW, SH);
+          const d = wctx.getImageData(0, 0, SW, SH).data;
 
-          let cw: number;
-          let ch: number;
-          if (cur > targetAspect) {
-            cw = iw;
-            ch = Math.round(iw / targetAspect);
-          } else {
-            ch = ih;
-            cw = Math.round(ih * targetAspect);
+          const at = (x: number, y: number) => {
+            const i = (y * SW + x) * 4;
+            return [d[i]!, d[i + 1]!, d[i + 2]!] as [number, number, number];
+          };
+
+          // Cores de fundo: amostras nas 4 bordas.
+          const samples: [number, number, number][] = [];
+          for (let x = 0; x < SW; x += 4) {
+            samples.push(at(x, 0), at(x, SH - 1), at(x, Math.min(SH - 1, 2)));
           }
-          const canvas = document.createElement("canvas");
-          canvas.width = cw;
-          canvas.height = ch;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return resolve(src);
+          for (let y = 0; y < SH; y += 4) {
+            samples.push(at(0, y), at(SW - 1, y));
+          }
+          const isBg = (c: [number, number, number]) => {
+            for (const s of samples) {
+              const dist =
+                Math.abs(c[0] - s[0]) + Math.abs(c[1] - s[1]) + Math.abs(c[2] - s[2]);
+              if (dist < 78) return true;
+            }
+            return false;
+          };
 
-          const dx = Math.round((cw - iw) / 2);
-          const dy = Math.round((ch - ih) / 2);
+          let minX = SW,
+            minY = SH,
+            maxX = -1,
+            maxY = -1;
+          for (let y = 0; y < SH; y++) {
+            for (let x = 0; x < SW; x++) {
+              if (!isBg(at(x, y))) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+              }
+            }
+          }
 
-          // 1) Fundo: a própria foto ampliada (cover) e desfocada — nunca aparece
-          //    sobre o playground, só nas áreas vazias ao redor.
-          const scale = Math.max(cw / iw, ch / ih) * 1.15;
-          const bw = iw * scale;
-          const bh = ih * scale;
-          ctx.filter = "blur(28px) saturate(1.05)";
-          ctx.drawImage(img, (cw - bw) / 2, (ch - bh) / 2, bw, bh);
-          ctx.filter = "none";
+          // Cor média das bordas (preenchimento nítido, sem blur).
+          let br = 0,
+            bg = 0,
+            bb = 0;
+          for (const s of samples) {
+            br += s[0];
+            bg += s[1];
+            bb += s[2];
+          }
+          const n = Math.max(1, samples.length);
+          const fillColor = `rgb(${Math.round(br / n)},${Math.round(bg / n)},${Math.round(bb / n)})`;
 
-          // 2) Foto original, inteira, centralizada e sem distorção.
-          ctx.drawImage(img, dx, dy, iw, ih);
+          const kx = iw / SW;
+          const ky = ih / SH;
+          let bx = 0,
+            by = 0,
+            bw2 = iw,
+            bh2 = ih;
+          const detected =
+            maxX > minX && maxY > minY && (maxX - minX) * (maxY - minY) > SW * SH * 0.01;
+          if (detected) {
+            // Margem de segurança de 12% em cada eixo — garante o brinquedo inteiro.
+            const padX = (maxX - minX) * 0.12 + 4;
+            const padY = (maxY - minY) * 0.12 + 4;
+            const x0 = Math.max(0, minX - padX);
+            const y0 = Math.max(0, minY - padY);
+            const x1 = Math.min(SW, maxX + padX);
+            const y1 = Math.min(SH, maxY + padY);
+            bx = x0 * kx;
+            by = y0 * ky;
+            bw2 = (x1 - x0) * kx;
+            bh2 = (y1 - y0) * ky;
+          }
+
+          // Expande a caixa até a proporção alvo usando pixels reais da foto.
+          let cw = bw2;
+          let ch = bh2;
+          if (cw / ch < targetAspect) cw = ch * targetAspect;
+          else ch = cw / targetAspect;
+          let cx = bx + bw2 / 2 - cw / 2;
+          let cy = by + bh2 / 2 - ch / 2;
+          // Limita ao interior da foto quando couber.
+          if (cw <= iw) cx = Math.max(0, Math.min(iw - cw, cx));
+          if (ch <= ih) cy = Math.max(0, Math.min(ih - ch, cy));
+
+          const OUT_W = 1400;
+          const OUT_H = Math.round(OUT_W / targetAspect);
+          const out = document.createElement("canvas");
+          out.width = OUT_W;
+          out.height = OUT_H;
+          const octx = out.getContext("2d");
+          if (!octx) return resolve(src);
+          octx.fillStyle = fillColor;
+          octx.fillRect(0, 0, OUT_W, OUT_H);
+          octx.imageSmoothingEnabled = true;
+          octx.imageSmoothingQuality = "high";
+
+          // Desenha a região recortada mantendo a proporção (sem distorção).
+          const scale = OUT_W / cw;
+          const sx = Math.max(0, cx);
+          const sy = Math.max(0, cy);
+          const sw = Math.min(iw - sx, cw - (sx - cx));
+          const sh = Math.min(ih - sy, ch - (sy - cy));
+          const dx = (sx - cx) * scale;
+          const dy = (sy - cy) * scale;
+          octx.drawImage(img, sx, sy, sw, sh, dx, dy, sw * scale, sh * scale);
 
           resolve({
-            data: canvas.toDataURL("image/jpeg", 0.92),
-            w: cw,
-            h: ch,
+            data: out.toDataURL("image/jpeg", 0.94),
+            w: OUT_W,
+            h: OUT_H,
             fmt: "JPEG",
           });
         } catch {
