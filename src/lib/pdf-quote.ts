@@ -203,19 +203,26 @@ function autoFrameSubject(src: Framed, targetAspect: number): Promise<Framed> {
             bh2 = (y1 - y0) * ky;
           }
 
-          // Expande a caixa até a proporção alvo usando pixels reais da foto.
+          // Proporção final: a do próprio brinquedo, apenas limitada a uma faixa
+          // confortável para a moldura do PDF — assim quase não sobra fundo
+          // sólido e o playground ocupa o máximo possível do espaço.
+          const MIN_A = 0.78;
+          const MAX_A = 1.55;
+          const subjectA = bw2 / bh2;
+          const finalA = Math.min(MAX_A, Math.max(MIN_A, subjectA || targetAspect));
+
           let cw = bw2;
           let ch = bh2;
-          if (cw / ch < targetAspect) cw = ch * targetAspect;
-          else ch = cw / targetAspect;
+          if (cw / ch < finalA) cw = ch * finalA;
+          else ch = cw / finalA;
           let cx = bx + bw2 / 2 - cw / 2;
           let cy = by + bh2 / 2 - ch / 2;
           // Limita ao interior da foto quando couber.
           if (cw <= iw) cx = Math.max(0, Math.min(iw - cw, cx));
           if (ch <= ih) cy = Math.max(0, Math.min(ih - ch, cy));
 
-          const OUT_W = 1400;
-          const OUT_H = Math.round(OUT_W / targetAspect);
+          const OUT_W = Math.round(1400 * Math.min(1, finalA));
+          const OUT_H = Math.round(OUT_W / finalA);
           const out = document.createElement("canvas");
           out.width = OUT_W;
           out.height = OUT_H;
